@@ -1,0 +1,922 @@
+{
+  "metadata": {
+    "trained_at": "2026-08-05T21:57:14.616610+00:00",
+    "target": "proxy_economic_value_usd",
+    "target_warning": "Proxy target derived from configured wage and prompt-effort assumptions; not observed business value.",
+    "algorithm": "GradientBoostingRegressor",
+    "hyperparameters": {
+      "alpha": 0.9,
+      "ccp_alpha": 0.0,
+      "criterion": "friedman_mse",
+      "init": null,
+      "learning_rate": 0.04,
+      "loss": "huber",
+      "max_depth": 3,
+      "max_features": null,
+      "max_leaf_nodes": null,
+      "min_impurity_decrease": 0.0,
+      "min_samples_leaf": 5,
+      "min_samples_split": 2,
+      "min_weight_fraction_leaf": 0.0,
+      "n_estimators": 160,
+      "n_iter_no_change": null,
+      "random_state": 42,
+      "subsample": 1.0,
+      "tol": 0.0001,
+      "validation_fraction": 0.1,
+      "verbose": 0,
+      "warm_start": false
+    },
+    "split_seed": 42,
+    "split_counts": {
+      "train": 154,
+      "calibration": 22,
+      "test": 44
+    },
+    "requested_split_fractions": {
+      "train": 0.7,
+      "calibration": 0.1,
+      "test": 0.2
+    },
+    "conformal_coverage_target_percent": 80.0,
+    "conformal_radius_usd": 61.66142150190586,
+    "test_metrics": {
+      "mae_usd": 27.316129820201592,
+      "rmse_usd": 41.25680581632847,
+      "r2": 0.5978812188902439,
+      "mape_percent": 25.58128791292189,
+      "interval_coverage_percent": 86.36363636363636
+    },
+    "feature_count": 71
+  },
+  "feature_importance": [
+    {
+      "feature": "estimated_output_tokens",
+      "importance": 0.45193888269675914
+    },
+    {
+      "feature": "kw_spreadsheet",
+      "importance": 0.09356413745613246
+    },
+    {
+      "feature": "sector=Real Estate and Rental and Leasing",
+      "importance": 0.062339674352337254
+    },
+    {
+      "feature": "requirement_count",
+      "importance": 0.06231052288039039
+    },
+    {
+      "feature": "family_diversity",
+      "importance": 0.04658326410750886
+    },
+    {
+      "feature": "kw_files",
+      "importance": 0.04244700108104683
+    },
+    {
+      "feature": "estimated_input_tokens",
+      "importance": 0.04138937831315896
+    },
+    {
+      "feature": "sentence_count",
+      "importance": 0.03713875948804704
+    },
+    {
+      "feature": "sector=Professional, Scientific, and Technical Services",
+      "importance": 0.02736788184188572
+    },
+    {
+      "feature": "is_regulated",
+      "importance": 0.0184109959520454
+    },
+    {
+      "feature": "occupation=Concierges",
+      "importance": 0.017442057788510698
+    },
+    {
+      "feature": "kw_analysis",
+      "importance": 0.015901567294331134
+    },
+    {
+      "feature": "sector=Information",
+      "importance": 0.013651392977060518
+    },
+    {
+      "feature": "character_count",
+      "importance": 0.013354913294748177
+    },
+    {
+      "feature": "is_consequential",
+      "importance": 0.00956971978990839
+    },
+    {
+      "feature": "sector=Wholesale Trade",
+      "importance": 0.00953661433958417
+    },
+    {
+      "feature": "word_count",
+      "importance": 0.008357925357719684
+    },
+    {
+      "feature": "kw_writing",
+      "importance": 0.006063594671041734
+    },
+    {
+      "feature": "kw_coding",
+      "importance": 0.005726984236587534
+    },
+    {
+      "feature": "kw_research",
+      "importance": 0.004038773033830419
+    }
+  ],
+  "test_points": [
+    {
+      "task_id": "83d10b06-26d1-4636-a32c-23f92c57f30b",
+      "sector": "Professional, Scientific, and Technical Services",
+      "actual": 264.2976984375,
+      "predicted": 282.46677201930686,
+      "residual": -18.169073581806856
+    },
+    {
+      "task_id": "43dc9778-450b-4b46-b77e-b6d82b202035",
+      "sector": "Professional, Scientific, and Technical Services",
+      "actual": 67.67406749999999,
+      "predicted": 78.67913370223329,
+      "residual": -11.005066202233294
+    },
+    {
+      "task_id": "f84ea6ac-8f9f-428c-b96c-d0884e30f7c7",
+      "sector": "Government",
+      "actual": 109.52048250000001,
+      "predicted": 110.39184155584877,
+      "residual": -0.8713590558487567
+    },
+    {
+      "task_id": "15ddd28d-8445-4baa-ac7f-f41372e1344e",
+      "sector": "Manufacturing",
+      "actual": 92.83396200000001,
+      "predicted": 110.24900334600606,
+      "residual": -17.41504134600605
+    },
+    {
+      "task_id": "575f8679-b4c1-47a2-8e96-d570d4ed9269",
+      "sector": "Government",
+      "actual": 110.3709165,
+      "predicted": 190.7263942506994,
+      "residual": -80.3554777506994
+    },
+    {
+      "task_id": "85d95ce5-b20c-41e2-834e-e788ce9622b6",
+      "sector": "Government",
+      "actual": 69.45050775000001,
+      "predicted": 133.0032367275418,
+      "residual": -63.55272897754179
+    },
+    {
+      "task_id": "36d567ba-e205-4313-9756-931c6e4691fe",
+      "sector": "Government",
+      "actual": 146.29485,
+      "predicted": 196.0268313304895,
+      "residual": -49.7319813304895
+    },
+    {
+      "task_id": "dfb4e0cd-a0b7-454e-b943-0dd586c2764c",
+      "sector": "Government",
+      "actual": 172.15867500000002,
+      "predicted": 179.0276186619821,
+      "residual": -6.868943661982087
+    },
+    {
+      "task_id": "2ea2e5b5-257f-42e6-a7dc-93763f28b19d",
+      "sector": "Professional, Scientific, and Technical Services",
+      "actual": 341.38581750000003,
+      "predicted": 172.0552828353144,
+      "residual": 169.33053466468564
+    },
+    {
+      "task_id": "c357f0e2-963d-4eb7-a6fa-3078fe55b3ba",
+      "sector": "Professional, Scientific, and Technical Services",
+      "actual": 296.10348768000006,
+      "predicted": 220.489188343718,
+      "residual": 75.61429933628204
+    },
+    {
+      "task_id": "b7a5912e-0e63-41f5-8c22-9cdb8f46ab01",
+      "sector": "Real Estate and Rental and Leasing",
+      "actual": 39.05732025000001,
+      "predicted": 96.87096902572429,
+      "residual": -57.81364877572428
+    },
+    {
+      "task_id": "87da214f-fd92-4c58-9854-f4d0d10adce0",
+      "sector": "Finance and Insurance",
+      "actual": 42.92127840000002,
+      "predicted": 98.33198076538586,
+      "residual": -55.410702365385845
+    },
+    {
+      "task_id": "d025a41c-c439-4ee1-bc79-dd5c94b27a2d",
+      "sector": "Finance and Insurance",
+      "actual": 32.19840000000001,
+      "predicted": 73.1559489098404,
+      "residual": -40.9575489098404
+    },
+    {
+      "task_id": "e222075d-5d62-4757-ae3c-e34b0846583b",
+      "sector": "Information",
+      "actual": 81.62416275000001,
+      "predicted": 81.28891206836495,
+      "residual": 0.3352506816350598
+    },
+    {
+      "task_id": "ec591973-04d5-48c0-981c-1ab2fcec2dc1",
+      "sector": "Wholesale Trade",
+      "actual": 66.953016,
+      "predicted": 83.8196961691111,
+      "residual": -16.866680169111092
+    },
+    {
+      "task_id": "0353ee0c-18b5-4ad3-88e8-e001d223e1d7",
+      "sector": "Health Care and Social Assistance",
+      "actual": 128.74977374999997,
+      "predicted": 112.63111874420348,
+      "residual": 16.118655005796498
+    },
+    {
+      "task_id": "a95a5829-34bb-40f3-993b-558aed6dcdef",
+      "sector": "Government",
+      "actual": 127.92229125000003,
+      "predicted": 123.07119495384816,
+      "residual": 4.851096296151866
+    },
+    {
+      "task_id": "68d8d901-dd0b-4a7e-bf9a-1074fddf1a96",
+      "sector": "Manufacturing",
+      "actual": 153.347532,
+      "predicted": 148.5164734521932,
+      "residual": 4.831058547806805
+    },
+    {
+      "task_id": "45c6237b-f9c9-4526-9a8d-6a5c404624ec",
+      "sector": "Retail Trade",
+      "actual": 147.46321200000003,
+      "predicted": 169.88430309464755,
+      "residual": -22.421091094647522
+    },
+    {
+      "task_id": "61b0946a-5c1c-4bf6-8607-84d7c7e0dfe0",
+      "sector": "Health Care and Social Assistance",
+      "actual": 119.36558400000001,
+      "predicted": 103.55059683860566,
+      "residual": 15.814987161394356
+    },
+    {
+      "task_id": "5d0feb24-e8b6-4ace-b64f-d5cd1a8b563d",
+      "sector": "Information",
+      "actual": 142.020216,
+      "predicted": 205.8924706423658,
+      "residual": -63.87225464236579
+    },
+    {
+      "task_id": "6974adea-8326-43fa-8187-2724b15d9546",
+      "sector": "Information",
+      "actual": 99.83699700000003,
+      "predicted": 86.00347101897451,
+      "residual": 13.833525981025517
+    },
+    {
+      "task_id": "1a78e076-445e-4c5d-b8ce-387d2fe5e715",
+      "sector": "Health Care and Social Assistance",
+      "actual": 113.34940500000002,
+      "predicted": 108.2349510537452,
+      "residual": 5.114453946254812
+    },
+    {
+      "task_id": "772e7524-174e-4c88-957e-6e510b61ea69",
+      "sector": "Health Care and Social Assistance",
+      "actual": 89.53629750000002,
+      "predicted": 91.64300577497136,
+      "residual": -2.1067082749713393
+    },
+    {
+      "task_id": "1137e2bb-bdf9-4876-b572-f29b7de5e595",
+      "sector": "Wholesale Trade",
+      "actual": 152.59577424000003,
+      "predicted": 139.3603942065681,
+      "residual": 13.235380033431937
+    },
+    {
+      "task_id": "c657103b-b348-4496-a848-b2b7165d28b2",
+      "sector": "Finance and Insurance",
+      "actual": 166.49178000000003,
+      "predicted": 138.72493841617657,
+      "residual": 27.766841583823464
+    },
+    {
+      "task_id": "a46d5cd2-55fe-48fa-a4c6-6aaf6b9991b5",
+      "sector": "Retail Trade",
+      "actual": 73.504665,
+      "predicted": 87.6219029964913,
+      "residual": -14.117237996491298
+    },
+    {
+      "task_id": "6241e678-4ba3-4831-b3c7-78412697febc",
+      "sector": "Information",
+      "actual": 183.10012500000005,
+      "predicted": 217.993877198484,
+      "residual": -34.89375219848395
+    },
+    {
+      "task_id": "46bc7238-3501-4839-b989-e2bd47853676",
+      "sector": "Real Estate and Rental and Leasing",
+      "actual": 89.2313565,
+      "predicted": 68.96781622459405,
+      "residual": 20.26354027540596
+    },
+    {
+      "task_id": "0818571f-5ff7-4d39-9d2c-ced5ae44299e",
+      "sector": "Real Estate and Rental and Leasing",
+      "actual": 141.8384565,
+      "predicted": 136.76232596812702,
+      "residual": 5.076130531872991
+    },
+    {
+      "task_id": "94925f49-36bc-42da-b45b-61078d329300",
+      "sector": "Real Estate and Rental and Leasing",
+      "actual": 136.43011200000004,
+      "predicted": 153.2097150191806,
+      "residual": -16.77960301918057
+    },
+    {
+      "task_id": "d3d255b2-f5f2-4841-9f62-2083ec9ef3da",
+      "sector": "Real Estate and Rental and Leasing",
+      "actual": 96.93161400000002,
+      "predicted": 89.41209347865924,
+      "residual": 7.51952052134078
+    },
+    {
+      "task_id": "116e791e-890c-42b1-ba90-1db02e8bfd45",
+      "sector": "Health Care and Social Assistance",
+      "actual": 101.02911,
+      "predicted": 102.33087744942142,
+      "residual": -1.301767449421419
+    },
+    {
+      "task_id": "8384083a-c31b-4194-80ba-4d335a444918",
+      "sector": "Retail Trade",
+      "actual": 100.73726208000004,
+      "predicted": 100.56491061240534,
+      "residual": 0.17235146759469444
+    },
+    {
+      "task_id": "ffed32d8-d192-4e3f-8cd4-eda5a730aec3",
+      "sector": "Retail Trade",
+      "actual": 161.61921750000005,
+      "predicted": 138.81356005634424,
+      "residual": 22.805657443655804
+    },
+    {
+      "task_id": "69a8ef86-4e69-4fe2-9168-080f1e978e67",
+      "sector": "Wholesale Trade",
+      "actual": 236.29298784000002,
+      "predicted": 157.0541670028558,
+      "residual": 79.23882083714423
+    },
+    {
+      "task_id": "d7cfae6f-4a82-4289-955e-c799dfe1e0f4",
+      "sector": "Wholesale Trade",
+      "actual": 149.63007696,
+      "predicted": 129.66702216222396,
+      "residual": 19.96305479777604
+    },
+    {
+      "task_id": "6a900a40-8d2b-4064-a5b1-13a60bc173d8",
+      "sector": "Wholesale Trade",
+      "actual": 185.233191,
+      "predicted": 198.63569837016516,
+      "residual": -13.402507370165154
+    },
+    {
+      "task_id": "5349dd7b-bf0a-4544-9a17-75b7013767e6",
+      "sector": "Manufacturing",
+      "actual": 106.45685700000001,
+      "predicted": 122.17274583082708,
+      "residual": -15.715888830827069
+    },
+    {
+      "task_id": "a4a9195c-5ebe-4b8d-a0c2-4a6b7a49da8b",
+      "sector": "Manufacturing",
+      "actual": 70.37862,
+      "predicted": 77.21448091228477,
+      "residual": -6.835860912284772
+    },
+    {
+      "task_id": "552b7dd0-96f4-437c-a749-0691e0e4b381",
+      "sector": "Manufacturing",
+      "actual": 130.65612300000004,
+      "predicted": 157.23631896059828,
+      "residual": -26.580195960598246
+    },
+    {
+      "task_id": "76418a2c-a3c0-4894-b89d-2493369135d9",
+      "sector": "Manufacturing",
+      "actual": 89.46588300000003,
+      "predicted": 101.35923533601557,
+      "residual": -11.893352336015539
+    },
+    {
+      "task_id": "0e386e32-df20-4d1f-b536-7159bc409ad5",
+      "sector": "Professional, Scientific, and Technical Services",
+      "actual": 199.43352000000004,
+      "predicted": 169.8553170575466,
+      "residual": 29.57820294245343
+    },
+    {
+      "task_id": "2c249e0f-4a8c-4f8e-b4f4-6508ba29b34f",
+      "sector": "Professional, Scientific, and Technical Services",
+      "actual": 230.5620525,
+      "predicted": 252.0699303212163,
+      "residual": -21.50787782121631
+    }
+  ],
+  "sectors": [
+    {
+      "name": "Professional, Scientific, and Technical Services",
+      "count": 25
+    },
+    {
+      "name": "Government",
+      "count": 25
+    },
+    {
+      "name": "Information",
+      "count": 25
+    },
+    {
+      "name": "Manufacturing",
+      "count": 25
+    },
+    {
+      "name": "Real Estate and Rental and Leasing",
+      "count": 25
+    },
+    {
+      "name": "Finance and Insurance",
+      "count": 25
+    },
+    {
+      "name": "Wholesale Trade",
+      "count": 25
+    },
+    {
+      "name": "Health Care and Social Assistance",
+      "count": 25
+    },
+    {
+      "name": "Retail Trade",
+      "count": 20
+    }
+  ],
+  "occupations": [
+    {
+      "name": "Accountants and Auditors",
+      "count": 5
+    },
+    {
+      "name": "Administrative Services Managers",
+      "count": 5
+    },
+    {
+      "name": "Audio and Video Technicians",
+      "count": 5
+    },
+    {
+      "name": "Buyers and Purchasing Agents",
+      "count": 5
+    },
+    {
+      "name": "Child, Family, and School Social Workers",
+      "count": 5
+    },
+    {
+      "name": "Compliance Officers",
+      "count": 5
+    },
+    {
+      "name": "Computer and Information Systems Managers",
+      "count": 5
+    },
+    {
+      "name": "Concierges",
+      "count": 5
+    },
+    {
+      "name": "Counter and Rental Clerks",
+      "count": 5
+    },
+    {
+      "name": "Customer Service Representatives",
+      "count": 5
+    },
+    {
+      "name": "Editors",
+      "count": 5
+    },
+    {
+      "name": "Film and Video Editors",
+      "count": 5
+    },
+    {
+      "name": "Financial and Investment Analysts",
+      "count": 5
+    },
+    {
+      "name": "Financial Managers",
+      "count": 5
+    },
+    {
+      "name": "First-Line Supervisors of Non-Retail Sales Workers",
+      "count": 5
+    },
+    {
+      "name": "First-Line Supervisors of Office and Administrative Support Workers",
+      "count": 5
+    },
+    {
+      "name": "First-Line Supervisors of Police and Detectives",
+      "count": 5
+    },
+    {
+      "name": "First-Line Supervisors of Production and Operating Workers",
+      "count": 5
+    },
+    {
+      "name": "First-Line Supervisors of Retail Sales Workers",
+      "count": 5
+    },
+    {
+      "name": "General and Operations Managers",
+      "count": 5
+    },
+    {
+      "name": "Industrial Engineers",
+      "count": 5
+    },
+    {
+      "name": "Lawyers",
+      "count": 5
+    },
+    {
+      "name": "Mechanical Engineers",
+      "count": 5
+    },
+    {
+      "name": "Medical and Health Services Managers",
+      "count": 5
+    },
+    {
+      "name": "Medical Secretaries and Administrative Assistants",
+      "count": 5
+    },
+    {
+      "name": "News Analysts, Reporters, and Journalists",
+      "count": 5
+    },
+    {
+      "name": "Nurse Practitioners",
+      "count": 5
+    },
+    {
+      "name": "Order Clerks",
+      "count": 5
+    },
+    {
+      "name": "Personal Financial Advisors",
+      "count": 5
+    },
+    {
+      "name": "Private Detectives and Investigators",
+      "count": 5
+    },
+    {
+      "name": "Producers and Directors",
+      "count": 5
+    },
+    {
+      "name": "Project Management Specialists",
+      "count": 5
+    },
+    {
+      "name": "Property, Real Estate, and Community Association Managers",
+      "count": 5
+    },
+    {
+      "name": "Real Estate Brokers",
+      "count": 5
+    },
+    {
+      "name": "Real Estate Sales Agents",
+      "count": 5
+    },
+    {
+      "name": "Recreation Workers",
+      "count": 5
+    },
+    {
+      "name": "Registered Nurses",
+      "count": 5
+    },
+    {
+      "name": "Pharmacists",
+      "count": 5
+    },
+    {
+      "name": "Sales Managers",
+      "count": 5
+    },
+    {
+      "name": "Sales Representatives, Wholesale and Manufacturing, Except Technical and Scientific Products",
+      "count": 5
+    },
+    {
+      "name": "Sales Representatives, Wholesale and Manufacturing, Technical and Scientific Products",
+      "count": 5
+    },
+    {
+      "name": "Securities, Commodities, and Financial Services Sales Agents",
+      "count": 5
+    },
+    {
+      "name": "Shipping, Receiving, and Inventory Clerks",
+      "count": 5
+    },
+    {
+      "name": "Software Developers",
+      "count": 5
+    }
+  ],
+  "catalog_snapshot_date": "2026-08-05",
+  "catalog_source_url": "https://pricepertoken.com/",
+  "catalog_method": "Curated current decision set from PricePerToken; legacy and near-duplicate entries excluded.",
+  "model_catalog": [
+    {
+      "model_id": "deepseek/deepseek-v4-flash",
+      "display_name": "DeepSeek V4 Flash",
+      "provider": "DeepSeek",
+      "input_per_million_usd": 0.088,
+      "output_per_million_usd": 0.176,
+      "cached_input_per_million_usd": 0.0028,
+      "context_tokens": 1000000,
+      "capability": 0.76,
+      "modalities": [
+        "text"
+      ],
+      "strengths": [
+        "analysis",
+        "research"
+      ]
+    },
+    {
+      "model_id": "openai/gpt-5-mini",
+      "display_name": "GPT-5 Mini",
+      "provider": "OpenAI",
+      "input_per_million_usd": 0.125,
+      "output_per_million_usd": 1.0,
+      "cached_input_per_million_usd": 0.0125,
+      "context_tokens": 400000,
+      "capability": 0.79,
+      "modalities": [
+        "text",
+        "vision"
+      ],
+      "strengths": [
+        "analysis",
+        "writing",
+        "files"
+      ]
+    },
+    {
+      "model_id": "openai/gpt-5.1-codex-mini",
+      "display_name": "GPT-5.1 Codex Mini",
+      "provider": "OpenAI",
+      "input_per_million_usd": 0.125,
+      "output_per_million_usd": 1.0,
+      "cached_input_per_million_usd": 0.03,
+      "context_tokens": 400000,
+      "capability": 0.84,
+      "modalities": [
+        "text"
+      ],
+      "strengths": [
+        "coding",
+        "analysis",
+        "spreadsheet"
+      ]
+    },
+    {
+      "model_id": "google/gemini-3.5-flash-lite",
+      "display_name": "Gemini 3.5 Flash Lite",
+      "provider": "Google",
+      "input_per_million_usd": 0.15,
+      "output_per_million_usd": 1.25,
+      "cached_input_per_million_usd": 0.015,
+      "context_tokens": 1000000,
+      "capability": 0.83,
+      "modalities": [
+        "text",
+        "vision"
+      ],
+      "strengths": [
+        "writing",
+        "media",
+        "files",
+        "analysis"
+      ]
+    },
+    {
+      "model_id": "moonshot/kimi-k2.7-code",
+      "display_name": "Kimi K2.7 Code",
+      "provider": "Moonshot AI",
+      "input_per_million_usd": 0.73,
+      "output_per_million_usd": 3.5,
+      "cached_input_per_million_usd": 0.15,
+      "context_tokens": 262000,
+      "capability": 0.9,
+      "modalities": [
+        "text",
+        "vision"
+      ],
+      "strengths": [
+        "analysis",
+        "spreadsheet",
+        "coding"
+      ]
+    },
+    {
+      "model_id": "google/gemini-3.6-flash",
+      "display_name": "Gemini 3.6 Flash",
+      "provider": "Google",
+      "input_per_million_usd": 0.75,
+      "output_per_million_usd": 3.75,
+      "cached_input_per_million_usd": 0.075,
+      "context_tokens": 1000000,
+      "capability": 0.93,
+      "modalities": [
+        "text",
+        "vision"
+      ],
+      "strengths": [
+        "analysis",
+        "research",
+        "writing",
+        "media",
+        "files"
+      ]
+    },
+    {
+      "model_id": "anthropic/claude-3.5-haiku",
+      "display_name": "Claude 3.5 Haiku",
+      "provider": "Anthropic",
+      "input_per_million_usd": 0.8,
+      "output_per_million_usd": 4.0,
+      "cached_input_per_million_usd": null,
+      "context_tokens": 200000,
+      "capability": 0.78,
+      "modalities": [
+        "text",
+        "vision"
+      ],
+      "strengths": [
+        "writing",
+        "analysis",
+        "files"
+      ]
+    },
+    {
+      "model_id": "openai/gpt-5.3-codex",
+      "display_name": "GPT-5.3 Codex",
+      "provider": "OpenAI",
+      "input_per_million_usd": 1.75,
+      "output_per_million_usd": 14.0,
+      "cached_input_per_million_usd": 0.175,
+      "context_tokens": 400000,
+      "capability": 0.94,
+      "modalities": [
+        "text"
+      ],
+      "strengths": [
+        "coding",
+        "analysis",
+        "spreadsheet",
+        "files"
+      ]
+    },
+    {
+      "model_id": "anthropic/claude-sonnet-5",
+      "display_name": "Claude Sonnet 5",
+      "provider": "Anthropic",
+      "input_per_million_usd": 2.0,
+      "output_per_million_usd": 10.0,
+      "cached_input_per_million_usd": 0.2,
+      "context_tokens": 1000000,
+      "capability": 0.91,
+      "modalities": [
+        "text",
+        "vision"
+      ],
+      "strengths": [
+        "analysis",
+        "writing",
+        "coding",
+        "files",
+        "compliance"
+      ]
+    },
+    {
+      "model_id": "google/gemini-3.1-pro-preview",
+      "display_name": "Gemini 3.1 Pro Preview",
+      "provider": "Google",
+      "input_per_million_usd": 2.0,
+      "output_per_million_usd": 12.0,
+      "cached_input_per_million_usd": 0.2,
+      "context_tokens": 1000000,
+      "capability": 0.96,
+      "modalities": [
+        "text",
+        "vision"
+      ],
+      "strengths": [
+        "analysis",
+        "research",
+        "writing",
+        "media",
+        "files",
+        "compliance"
+      ]
+    },
+    {
+      "model_id": "openai/gpt-5.6-sol",
+      "display_name": "GPT-5.6 Sol",
+      "provider": "OpenAI",
+      "input_per_million_usd": 2.5,
+      "output_per_million_usd": 15.0,
+      "cached_input_per_million_usd": 0.25,
+      "context_tokens": 1100000,
+      "capability": 0.92,
+      "modalities": [
+        "text",
+        "vision"
+      ],
+      "strengths": [
+        "analysis",
+        "research",
+        "writing",
+        "coding",
+        "files",
+        "compliance"
+      ]
+    },
+    {
+      "model_id": "anthropic/claude-sonnet-4.6",
+      "display_name": "Claude Sonnet 4.6",
+      "provider": "Anthropic",
+      "input_per_million_usd": 3.0,
+      "output_per_million_usd": 15.0,
+      "cached_input_per_million_usd": 0.3,
+      "context_tokens": 1000000,
+      "capability": 0.9,
+      "modalities": [
+        "text",
+        "vision"
+      ],
+      "strengths": [
+        "analysis",
+        "writing",
+        "coding",
+        "files",
+        "compliance"
+      ]
+    },
+    {
+      "model_id": "anthropic/claude-opus-5",
+      "display_name": "Claude Opus 5",
+      "provider": "Anthropic",
+      "input_per_million_usd": 5.0,
+      "output_per_million_usd": 25.0,
+      "cached_input_per_million_usd": 0.5,
+      "context_tokens": 1000000,
+      "capability": 0.97,
+      "modalities": [
+        "text",
+        "vision"
+      ],
+      "strengths": [
+        "analysis",
+        "research",
+        "compliance"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Task Value Lab</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">GDPVAL · ECONOMIC ROUTING MVP</p>
+      <h1>Task Value Lab</h1>
+      <p class="subtitle">Forecast economic value, enforce a 10% budget, and inspect model decisions.</p>
+    </div>
+    <div class="header-actions">
+      <a class="button secondary" href="/api/export.csv">Export CSV</a>
+      <a class="button" href="/api/export.json">Export JSON</a>
+    </div>
+  </header>
+
+  <div class="notice">
+    <strong>Prototype target:</strong> dollar values are ML forecasts of transparent wage-and-effort proxy labels, not observed business value.
+  </div>
+
+  <nav class="tabs" aria-label="Application sections">
+    <button class="tab active" data-tab="forecasts">Task forecasts</button>
+    <button class="tab" data-tab="model">Model &amp; splits</button>
+    <button class="tab" data-tab="catalog">Model catalog</button>
+  </nav>
+
+  <main>
+    <section id="tab-forecasts" class="tab-panel active">
+      <div id="summary-cards" class="cards"></div>
+
+      <div class="workspace-grid">
+        <section class="panel browser-panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">TASK CATALOG</p><h2>Browse forecasts</h2></div>
+            <span id="result-count" class="pill"></span>
+          </div>
+          <div class="filters">
+            <input id="search" type="search" placeholder="Search task, sector, or occupation">
+            <select id="sector-filter"><option value="">All sectors</option></select>
+            <select id="occupation-filter"><option value="">All occupations</option></select>
+            <select id="split-filter">
+              <option value="">All splits</option>
+              <option value="train">Train</option>
+              <option value="calibration">Calibration</option>
+              <option value="test">Test</option>
+            </select>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Task</th><th>Split</th><th>P50 value</th><th>10% max</th><th>Model</th></tr></thead>
+              <tbody id="task-rows"></tbody>
+            </table>
+          </div>
+          <div class="pager">
+            <button id="prev-page" class="button secondary">Previous</button>
+            <span id="page-label"></span>
+            <button id="next-page" class="button secondary">Next</button>
+          </div>
+        </section>
+
+        <aside id="task-detail" class="panel detail-panel">
+          <div class="empty-state"><div class="empty-icon">↗</div><h2>Select a task</h2><p>Inspect its forecast interval, assumptions, budget, and model recommendation.</p></div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="tab-model" class="tab-panel">
+      <div id="split-cards" class="cards"></div>
+      <div class="model-grid">
+        <section class="panel chart-panel"><div class="panel-heading"><div><p class="eyebrow">TEST SET</p><h2>Proxy value vs prediction</h2></div></div><canvas id="scatter-chart" height="300"></canvas></section>
+        <section class="panel chart-panel"><div class="panel-heading"><div><p class="eyebrow">ERROR PROFILE</p><h2>Residual distribution</h2></div></div><canvas id="residual-chart" height="300"></canvas></section>
+        <section class="panel chart-panel importance-panel"><div class="panel-heading"><div><p class="eyebrow">MODEL EXPLANATION</p><h2>Feature importance</h2></div></div><canvas id="importance-chart" height="520"></canvas></section>
+        <section class="panel metrics-panel"><div class="panel-heading"><div><p class="eyebrow">EVALUATION</p><h2>Held-out metrics</h2></div></div><div id="metric-list"></div><p id="method-note" class="method-note"></p></section>
+      </div>
+    </section>
+
+    <section id="tab-catalog" class="tab-panel">
+      <section class="panel catalog-panel">
+        <div class="panel-heading">
+          <div><p class="eyebrow">CANDIDATE MODELS</p><h2>PricePerToken catalog snapshot</h2></div>
+          <a id="catalog-source" class="pill" target="_blank" rel="noreferrer"></a>
+        </div>
+        <div class="catalog-intro">
+          <div><span>Purpose</span><strong>Provider-neutral model selection</strong></div>
+          <div><span>Pricing basis</span><strong>USD per 1M tokens</strong></div>
+          <div><span>Selection</span><strong>Current, non-duplicate decision set</strong></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Provider</th><th>Model</th><th>Capability</th><th>Input / 1M</th><th>Output / 1M</th><th>Cached / 1M</th><th>Context</th><th>Modalities</th></tr></thead>
+            <tbody id="catalog-rows"></tbody>
+          </table>
+        </div>
+        <p id="catalog-method" class="method-note"></p>
+      </section>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
