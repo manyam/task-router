@@ -58,7 +58,7 @@ class MvpTestCase(unittest.TestCase):
         self.assertGreater(len(self.metrics["feature_importance"]), 0)
 
     def test_http_routes(self) -> None:
-        for path in ("/", "/health", "/api/tasks", "/api/model", "/api/export.json", "/api/export.csv"):
+        for path in ("/", "/health", "/api/tasks", "/api/model", "/api/export.json", "/api/export.csv", "/api/evals/runs"):
             response = self.client.get(path)
             self.assertEqual(response.status_code, 200, path)
             response.close()
@@ -67,6 +67,17 @@ class MvpTestCase(unittest.TestCase):
         detail = self.client.get(f"/api/tasks/{tasks[0]['task_id']}")
         self.assertEqual(detail.status_code, 200)
         self.assertEqual(self.client.get("/api/tasks/not-real").status_code, 404)
+        self.assertEqual(self.client.get("/api/evals/runs").get_json(), [])
+        self.assertEqual(self.client.get("/api/evals/runs/not-real").status_code, 404)
+        run_dir = self.artifact_dir / "evals" / "fixture-run"
+        run_dir.mkdir(parents=True)
+        (run_dir / "run.json").write_text(json.dumps({"run_id": "fixture-run", "status": "running", "started_at": "2026-01-01T00:00:00Z"}), encoding="utf-8")
+        (run_dir / "results.jsonl").write_text(json.dumps({"eval_id": "bfcl:1", "passed": True}) + "\n", encoding="utf-8")
+        runs = self.client.get("/api/evals/runs").get_json()
+        self.assertEqual(runs[0]["run_id"], "fixture-run")
+        self.assertEqual(self.client.get("/api/evals/runs/fixture-run").status_code, 200)
+        results = self.client.get("/api/evals/runs/fixture-run/results").get_json()
+        self.assertEqual(results, [{"eval_id": "bfcl:1", "passed": True}])
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ from pathlib import Path
 from flask import Flask, abort, jsonify, render_template, send_file
 
 from task_value_mvp.config import ARTIFACT_DIR
+from task_value_mvp.evals.store import EvalRunStore
 from task_value_mvp.service import ForecastStore
 
 
@@ -13,6 +14,7 @@ def create_app(artifact_dir: Path | None = None) -> Flask:
     app = Flask(__name__)
     resolved_artifacts = Path(artifact_dir or ARTIFACT_DIR)
     store = ForecastStore(resolved_artifacts)
+    eval_store = EvalRunStore(resolved_artifacts)
 
     @app.get("/")
     def index():
@@ -52,6 +54,24 @@ def create_app(artifact_dir: Path | None = None) -> Flask:
     def export_csv():
         return send_file(resolved_artifacts / "forecasts.csv", as_attachment=True)
 
+    @app.get("/api/evals/runs")
+    def eval_runs():
+        return jsonify(eval_store.list_runs())
+
+    @app.get("/api/evals/runs/<run_id>")
+    def eval_run(run_id: str):
+        value = eval_store.get_run(run_id)
+        if value is None:
+            abort(404)
+        return jsonify(value)
+
+    @app.get("/api/evals/runs/<run_id>/results")
+    def eval_results(run_id: str):
+        value = eval_store.get_results(run_id)
+        if value is None:
+            abort(404)
+        return jsonify(value)
+
     return app
 
 
@@ -61,4 +81,3 @@ if __name__ == "__main__":
         port=int(os.environ.get("FLASK_PORT", "5000")),
         debug=os.environ.get("FLASK_DEBUG", "0") == "1",
     )
-
