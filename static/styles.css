@@ -12,6 +12,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0; color: var(--ink); background: var(--paper); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 .topbar { display: flex; justify-content: space-between; align-items: flex-end; gap: 2rem; padding: 2.2rem max(2rem, calc((100vw - 1500px) / 2)); background: var(--ink); color: white; }
 h1, h2, h3, p { margin-top: 0; }
@@ -45,6 +46,8 @@ main { max-width: 1500px; margin: 0 auto; padding: 1.4rem 2rem 3rem; }
 .pill.train { background: #e4ede8; color: #285b44; }
 .pill.calibration { background: #e6edf7; color: #37638c; }
 .pill.test { background: #f6e6db; color: #9a4d25; }
+.pill.pass { background: var(--green-soft); color: var(--green); }
+.pill.pending { background: #fff2d9; color: #8a5a20; }
 .filters { display: grid; grid-template-columns: 1.6fr repeat(3, 1fr); gap: .55rem; padding: .8rem 1rem; border-bottom: 1px solid var(--line); }
 input, select { width: 100%; border: 1px solid var(--line); border-radius: 7px; padding: .62rem .7rem; background: white; color: var(--ink); font: inherit; font-size: .8rem; }
 .table-wrap { overflow-x: auto; }
@@ -91,6 +94,14 @@ tbody tr:hover, tbody tr.selected { background: #edf5ef; }
 .catalog-intro > div { padding: .9rem 1.2rem; background: #f8f7f1; }
 .catalog-intro span { display: block; color: var(--muted); font-size: .67rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
 .catalog-intro strong { display: block; margin-top: .25rem; font-size: .86rem; }
+.eval-empty code { display: inline-block; max-width: 100%; padding: .6rem .8rem; border-radius: 6px; background: #edf0e9; color: var(--ink); overflow-wrap: anywhere; }
+.eval-grid { grid-template-columns: 1.2fr 1fr; }
+.gate-list { display: grid; gap: .55rem; padding: 1rem; }
+.gate-check { display: flex; align-items: center; gap: .65rem; padding: .65rem .75rem; border: 1px solid var(--line); border-radius: 8px; font-size: .76rem; text-transform: capitalize; }
+.gate-check span { width: 1.3rem; height: 1.3rem; display: grid; place-items: center; border-radius: 50%; font-weight: 800; }
+.gate-check.passed span { background: var(--green-soft); color: var(--green); }
+.gate-check.failed span { background: #f6e6db; color: #9a4d25; }
+.eval-provenance { padding: .9rem 1rem; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
 
 @media (max-width: 1050px) {
   .workspace-grid, .model-grid { grid-template-columns: 1fr; }

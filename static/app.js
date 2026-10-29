@@ -1,4 +1,4 @@
-const state = { tasks: [], filtered: [], model: null, page: 1, pageSize: 12, selected: null };
+const state = { tasks: [], filtered: [], model: null, evalRuns: [], evalDetail: null, page: 1, pageSize: 12, selected: null };
 const money = value => value == null ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: value < 1 ? 3 : 0 }).format(value);
 const percent = value => value == null ? "—" : `${(value * 100).toFixed(1)}%`;
 const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
@@ -8,9 +8,14 @@ function card(label, value, note) {
 }
 
 async function load() {
-  const [tasks, model] = await Promise.all([fetch("/api/tasks").then(r => r.json()), fetch("/api/model").then(r => r.json())]);
-  state.tasks = tasks; state.filtered = tasks; state.model = model;
-  setupFilters(); renderSummary(); applyFilters(); renderModel();
+  const [tasks, model, evalRuns] = await Promise.all([
+    fetch("/api/tasks").then(r => r.json()),
+    fetch("/api/model").then(r => r.json()),
+    fetch("/api/evals/runs").then(r => r.ok ? r.json() : []).catch(() => [])
+  ]);
+  state.tasks = tasks; state.filtered = tasks; state.model = model; state.evalRuns = evalRuns;
+  if (evalRuns.length) state.evalDetail = await fetch(`/api/evals/runs/${encodeURIComponent(evalRuns[0].run_id)}`).then(r => r.ok ? r.json() : null).catch(() => null);
+  setupFilters(); renderSummary(); applyFilters(); renderModel(); renderEvals();
 }
 
 function setupFilters() {
@@ -101,6 +106,33 @@ function renderModel() {
   const source = document.getElementById("catalog-source"); source.textContent = `Source · ${state.model.catalog_snapshot_date}`; source.href = state.model.catalog_source_url;
   document.getElementById("catalog-method").textContent = state.model.catalog_method;
   document.getElementById("catalog-rows").innerHTML = state.model.model_catalog.map(m => `<tr><td><strong>${escapeHtml(m.provider)}</strong></td><td><strong>${escapeHtml(m.display_name)}</strong><div class="task-sub">${escapeHtml(m.model_id)}</div></td><td>${m.capability.toFixed(2)}</td><td>${money(m.input_per_million_usd)}</td><td>${money(m.output_per_million_usd)}</td><td>${m.cached_input_per_million_usd == null ? "—" : money(m.cached_input_per_million_usd)}</td><td>${m.context_tokens.toLocaleString()}</td><td>${m.modalities.join(", ")}</td></tr>`).join("");
+}
+
+function renderEvals() {
+  const empty = document.getElementById("eval-empty"), content = document.getElementById("eval-content"), report = state.evalDetail?.report, metadata = state.evalDetail?.metadata;
+  if (!metadata) {
+    empty.hidden = false; content.hidden = true;
+    document.getElementById("eval-summary-cards").innerHTML = [card("Core tasks", "88", "64 BFCL + 24 SpreadsheetBench"), card("Locked holdout", "22", "Never used for calibration"), card("Configured models", "3", "Low, middle, and premium tiers"), card("Status", "Not run", "Current recommendations remain active")].join("");
+    return;
+  }
+  empty.hidden = true; content.hidden = false;
+  const gate = report?.promotion_gate, router = report?.router;
+  document.getElementById("eval-summary-cards").innerHTML = [
+    card("Profile", metadata.profile, `${metadata.task_count} tasks`),
+    card("Calibration", router ? router.brier_score.toFixed(3) : "In progress", router ? `ECE ${router.expected_calibration_error.toFixed(3)}` : `${metadata.models?.length || 0} configured models`),
+    card("Router cost savings", router?.cost_savings_vs_premium == null ? "—" : percent(router.cost_savings_vs_premium), "Versus premium-only on holdout"),
+    card("Promotion", gate?.passed ? "Passed" : "Experimental", gate?.passed ? "All holdout checks passed" : "Current recommendation path retained")
+  ].join("");
+  const runStatus = document.getElementById("eval-run-status"); runStatus.textContent = metadata.status; runStatus.className = `pill ${metadata.status === "complete" ? "pass" : "pending"}`;
+  document.getElementById("eval-gate-status").textContent = gate?.passed ? "Passed" : "Experimental";
+  document.getElementById("eval-gate-status").className = `pill ${gate?.passed ? "pass" : "pending"}`;
+  const modelRoles = Object.fromEntries((metadata.models || []).map(model => [model.alias, model.role]));
+  document.getElementById("eval-model-rows").innerHTML = report ? Object.entries(report.per_model).map(([alias, item]) => `<tr><td><strong>${escapeHtml(alias)}</strong><div class="task-sub">${escapeHtml(modelRoles[alias] || "")}</div></td><td>${percent(item.pass_rate)}</td><td>${percent(item.mean_score)}</td><td>${money(item.cost_per_pass_usd)}</td><td>${(item.p50_latency_ms / 1000).toFixed(1)}s / ${(item.p95_latency_ms / 1000).toFixed(1)}s</td><td>${item.severe_failures} severe · ${item.errors} errors</td></tr>`).join("") : `<tr><td colspan="6">The run is still in progress.</td></tr>`;
+  document.getElementById("eval-source-rows").innerHTML = report ? Object.entries(report.per_source).map(([source, item]) => `<tr><td><strong>${escapeHtml(source)}</strong><div class="task-sub">${percent(item.coverage)} coverage</div></td><td>${item.tasks}</td><td>${percent(item.pass_rate)}</td><td>${percent(item.mean_score)}</td><td>${item.errors}</td></tr>`).join("") : "";
+  document.getElementById("eval-baseline-rows").innerHTML = report ? Object.entries(report.baselines).map(([name, item]) => `<tr class="${name === "evidence_router" ? "selected" : ""}"><td><strong>${escapeHtml(name.replaceAll("_", " "))}</strong></td><td>${percent(item.coverage)}</td><td>${percent(item.pass_rate)}</td><td>${money(item.cost_per_pass_usd)}</td><td>${percent(item.mean_quality_regret)}</td></tr>`).join("") : "";
+  document.getElementById("eval-gate-list").innerHTML = gate ? Object.entries(gate.checks).map(([name, passed]) => `<div class="gate-check ${passed ? "passed" : "failed"}"><span>${passed ? "✓" : "×"}</span><strong>${escapeHtml(name.replaceAll("_", " "))}</strong></div>`).join("") : `<p class="method-note">Available after the run is complete.</p>`;
+  const started = metadata.started_at ? new Date(metadata.started_at).toLocaleString() : "unknown";
+  document.getElementById("eval-provenance").textContent = `Run ${metadata.run_id} · started ${started} · fixed scaffold and seed · ${metadata.profile} · eval-derived routing remains experimental until every promotion check passes.`;
 }
 
 function canvasSetup(id) {

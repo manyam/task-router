@@ -1,6 +1,6 @@
 # Task Value Lab MVP
 
-A local Flask application that forecasts economic value for GDPVal-style tasks, applies a flat 10% maximum-cost policy, and recommends a candidate model from a dated, provider-neutral pricing catalog.
+A local Flask application that forecasts economic value for GDPVal-style tasks, applies a flat 10% maximum-cost policy, and measures routing decisions with reproducible tool-calling and spreadsheet evaluations.
 
 ## Important limitation
 
@@ -8,10 +8,11 @@ GDPVal provides prompts and evaluation rubrics, but it does not provide observed
 
 This is a working pipeline and decision-support prototype, not a validated economic valuation system.
 
-The frontend has three top-level tabs:
+The frontend has four top-level tabs:
 
 - **Task forecasts** for browsing forecasts, proxy assumptions, budgets, and recommendations.
 - **Model & splits** for the 70/10/20 allocation, held-out metrics, residuals, predictions, and feature importance.
+- **Router evals** for benchmark coverage, measured model quality/cost/latency, holdout baselines, calibration, and the promotion gate.
 - **Model catalog** for the provider-neutral PricePerToken snapshot and normalized pricing metadata.
 
 ## Setup
@@ -41,6 +42,41 @@ The CSV must contain `task_id`, `sector`, `occupation`, and `prompt`.
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
+## Routing evaluations
+
+The default `local-core` profile contains 88 deterministic tasks: 64 BFCL v4 tasks across simple, multiple-call, parallel-call, and relevance detection, plus 24 SpreadsheetBench Verified tasks balanced by task type and workbook-complexity tertile. The split is 66 calibration tasks and 22 locked holdout tasks. GDPVal remains the only source used for economic-value and budget-policy labels.
+
+Build the normalized task cache, create an untracked three-model configuration, and run the suite:
+
+```bash
+.venv/bin/python -m task_value_mvp.evals build --profile local-core
+cp eval_models.example.yaml eval_models.local.yaml
+# Edit the three catalog mappings, prices, endpoints, and credential variable names.
+export TASK_ROUTER_LOW_API_KEY=...
+export TASK_ROUTER_MIDDLE_API_KEY=...
+export TASK_ROUTER_PREMIUM_API_KEY=...
+.venv/bin/python -m task_value_mvp.evals run --models-config eval_models.local.yaml
+.venv/bin/python -m task_value_mvp.evals report --run-id <run-id>
+```
+
+`eval_models.local.yaml`, downloaded data, answers, workbooks, and gated assets are ignored. Credentials are read only from the named environment variables and are excluded from manifests, traces, and run metadata. Immutable run outputs are written to `artifacts/evals/<run-id>/`.
+
+The optional profile adds 12 GAIA validation tasks, four per difficulty level:
+
+```bash
+.venv/bin/hf auth login
+.venv/bin/python -m task_value_mvp.evals build --profile local-plus-gaia
+.venv/bin/python -m task_value_mvp.evals run --profile local-plus-gaia --models-config eval_models.local.yaml
+```
+
+GAIA access must already be approved on Hugging Face. Its questions, answers, and files remain in `.eval-cache/` and must not be redistributed.
+
+The committed [evaluation manifest](./evals/manifest.json) pins source revisions, task IDs, graders, licenses, access rules, and the calibration/holdout assignment. Builds reject missing records/assets and duplicate or near-duplicate prompts. BFCL uses Apache-2.0 data at revision `6ea57973c7a6097fd7c5915698c54c17c5b1b6c8`; SpreadsheetBench uses CC-BY-SA-4.0 data at revision `ab0b742b0fc95b946f212d80ac7771b5531272e4`; the gated GAIA revision is `682dd723ee1e1697e00360edccf2366dc8418dd9`.
+
+Each task-model pair receives one fixed-seed trial. Disagreements, execution errors, and a deterministic 10% reliability sample receive two additional trials. The report compares the fitted router against cheapest-only, premium-only, seeded-random, current-heuristic, and oracle baselines on the locked holdout. Eval-derived routing remains experimental unless all cost, quality, severe-failure, budget, and paired-bootstrap promotion checks pass.
+
+Spreadsheet outputs are recalculated with a local LibreOffice/`soffice` binary when one is available before the official answer-range comparison. The runner records whether recalculation occurred in each trace.
+
 ## Outputs
 
 Training writes these generated files under `artifacts/`:
@@ -56,7 +92,7 @@ Only load `model.pkl` when it was generated locally; pickle is not safe for untr
 
 The current candidate set is a curated snapshot of [PricePerToken](https://pricepertoken.com/) dated August 5, 2026. It includes models from OpenAI, Anthropic, Google, DeepSeek, and Moonshot AI across multiple price and capability tiers. Legacy and near-duplicate table entries are excluded. Prices are versioned in generated metrics; retrain after changing the catalog to regenerate all recommendations.
 
-The catalog's capability scores and task-family strengths remain MVP heuristics. They must ultimately be replaced by repeated GDPVal-style task executions and calibrated quality estimates.
+The catalog's capability scores and task-family strengths remain the active MVP recommendation heuristic. Evaluation runs fit experimental success estimates on the calibration partition and evaluate them only on the locked holdout; they replace the active path only after the promotion gate passes.
 
 ## Split and modeling discipline
 

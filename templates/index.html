@@ -9,9 +9,9 @@
 <body>
   <header class="topbar">
     <div>
-      <p class="eyebrow">GDPVAL · ECONOMIC ROUTING MVP</p>
+      <p class="eyebrow">TASK ROUTER · EVIDENCE LAB</p>
       <h1>Task Value Lab</h1>
-      <p class="subtitle">Forecast economic value, enforce a 10% budget, and inspect model decisions.</p>
+      <p class="subtitle">Forecast economic value, measure model outcomes, and inspect routing decisions.</p>
     </div>
     <div class="header-actions">
       <a class="button secondary" href="/api/export.csv">Export CSV</a>
@@ -26,6 +26,7 @@
   <nav class="tabs" aria-label="Application sections">
     <button class="tab active" data-tab="forecasts">Task forecasts</button>
     <button class="tab" data-tab="model">Model &amp; splits</button>
+    <button class="tab" data-tab="evals">Router evals</button>
     <button class="tab" data-tab="catalog">Model catalog</button>
   </nav>
 
@@ -76,6 +77,34 @@
         <section class="panel chart-panel"><div class="panel-heading"><div><p class="eyebrow">ERROR PROFILE</p><h2>Residual distribution</h2></div></div><canvas id="residual-chart" height="300"></canvas></section>
         <section class="panel chart-panel importance-panel"><div class="panel-heading"><div><p class="eyebrow">MODEL EXPLANATION</p><h2>Feature importance</h2></div></div><canvas id="importance-chart" height="520"></canvas></section>
         <section class="panel metrics-panel"><div class="panel-heading"><div><p class="eyebrow">EVALUATION</p><h2>Held-out metrics</h2></div></div><div id="metric-list"></div><p id="method-note" class="method-note"></p></section>
+      </div>
+    </section>
+
+    <section id="tab-evals" class="tab-panel">
+      <div id="eval-summary-cards" class="cards"></div>
+      <section id="eval-empty" class="panel eval-empty" hidden>
+        <div class="empty-state"><div class="empty-icon">✓</div><h2>No evaluation runs yet</h2><p>Build the local-core profile and run it against a three-model configuration to populate this dashboard.</p><code>python -m task_value_mvp.evals build --profile local-core</code></div>
+      </section>
+      <div id="eval-content" hidden>
+        <div class="model-grid eval-grid">
+          <section class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">MEASURED OUTCOMES</p><h2>Model quality, cost, and latency</h2></div><span id="eval-run-status" class="pill"></span></div>
+            <div class="table-wrap"><table><thead><tr><th>Model</th><th>Pass</th><th>Score</th><th>Cost / pass</th><th>P50 / P95 latency</th><th>Failures</th></tr></thead><tbody id="eval-model-rows"></tbody></table></div>
+          </section>
+          <section class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">PROMOTION GATE</p><h2>Evidence-backed router</h2></div><span id="eval-gate-status" class="pill"></span></div>
+            <div id="eval-gate-list" class="gate-list"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">BENCHMARK COVERAGE</p><h2>Results by source</h2></div></div>
+            <div class="table-wrap"><table><thead><tr><th>Source</th><th>Tasks × models</th><th>Pass</th><th>Score</th><th>Errors</th></tr></thead><tbody id="eval-source-rows"></tbody></table></div>
+          </section>
+          <section class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">HOLDOUT COMPARISON</p><h2>Router and baselines</h2></div></div>
+            <div class="table-wrap"><table><thead><tr><th>Policy</th><th>Coverage</th><th>Pass</th><th>Cost / pass</th><th>Quality regret</th></tr></thead><tbody id="eval-baseline-rows"></tbody></table></div>
+          </section>
+        </div>
+        <p id="eval-provenance" class="method-note eval-provenance"></p>
       </div>
     </section>
 

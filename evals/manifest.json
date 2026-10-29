@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "selection_seed": 42,
+  "selection_method": "SHA-256 ordering within each source stratum; selections and 75/25 splits are committed",
+  "near_duplicate_threshold": 0.92,
+  "sources": {
+    "bfcl": {
+      "repo_url": "https://github.com/ShishirPatil/gorilla",
+      "revision": "6ea57973c7a6097fd7c5915698c54c17c5b1b6c8",
+      "license": "Apache-2.0",
+      "access_policy": "public",
+      "grader": "bfcl_ast_v4",
+      "selection_key": "42:{stratum}:{source_task_id}",
+      "file_sha256": {
+        "BFCL_v4_simple_python.json": "82dd63ba502eb2520c6b5d1d9a5c4b590e03ff261565175561f6228a367d1991",
+        "BFCL_v4_multiple.json": "aef168155ebd74b7ac2401198b201343bc7d16d7a3d7e0d4e6d8ee82c6969b2a",
+        "BFCL_v4_parallel.json": "19f51a82eff42e5d62541aa500115a056eb78f437c2ba1f10415fd7c8e5dda84",
+        "BFCL_v4_irrelevance.json": "2b6ed4c2e992cdcf5f1678a701851f944bef7550ee026ed1ddb89efed5be01a6",
+        "possible_answer/BFCL_v4_simple_python.json": "90cd5bc653690ee8e459b5b3f3fc9458606f7f3fcbf795bb51b7dc581f8c86dc",
+        "possible_answer/BFCL_v4_multiple.json": "244e00ce9395df948bcafc7bee64e8f9c87ef70887587d83cae45b13699f3047",
+        "possible_answer/BFCL_v4_parallel.json": "8a6aa19c1adddc6a5a2f7e40f9dbf30cc7e95815e7b830c90589ab318229e0f0"
+      },
+      "strata": {
+        "simple": {"selected_ids": ["simple_python_320", "simple_python_20", "simple_python_50", "simple_python_285", "simple_python_77", "simple_python_325", "simple_python_37", "simple_python_26", "simple_python_130", "simple_python_22", "simple_python_386", "simple_python_215", "simple_python_260", "simple_python_276", "simple_python_290", "simple_python_271"], "holdout_ids": ["simple_python_260", "simple_python_276", "simple_python_290", "simple_python_271"]},
+        "multiple": {"selected_ids": ["multiple_113", "multiple_58", "multiple_108", "multiple_66", "multiple_32", "multiple_90", "multiple_141", "multiple_3", "multiple_156", "multiple_179", "multiple_146", "multiple_59", "multiple_4", "multiple_186", "multiple_11", "multiple_34"], "holdout_ids": ["multiple_4", "multiple_186", "multiple_11", "multiple_34"]},
+        "parallel": {"selected_ids": ["parallel_3", "parallel_107", "parallel_169", "parallel_4", "parallel_124", "parallel_128", "parallel_79", "parallel_19", "parallel_12", "parallel_150", "parallel_182", "parallel_122", "parallel_16", "parallel_177", "parallel_13", "parallel_75"], "holdout_ids": ["parallel_16", "parallel_177", "parallel_13", "parallel_75"]},
+        "irrelevance": {"selected_ids": ["irrelevance_144", "irrelevance_181", "irrelevance_72", "irrelevance_183", "irrelevance_189", "irrelevance_75", "irrelevance_65", "irrelevance_29", "irrelevance_222", "irrelevance_130", "irrelevance_1", "irrelevance_187", "irrelevance_67", "irrelevance_80", "irrelevance_50", "irrelevance_163"], "holdout_ids": ["irrelevance_67", "irrelevance_80", "irrelevance_50", "irrelevance_163"]}
+      }
+    },
+    "spreadsheetbench": {
+      "dataset_id": "KAKA22/SpreadsheetBench",
+      "revision": "ab0b742b0fc95b946f212d80ac7771b5531272e4",
+      "filename": "spreadsheetbench_verified_400.tar.gz",
+      "license": "CC-BY-SA-4.0",
+      "access_policy": "public",
+      "grader": "spreadsheetbench_verified_v1",
+      "selection_key": "42:spreadsheetbench:{stratum}:{source_task_id}",
+      "complexity_metric": "nonempty_cells + 5 * formula_cells + 25 * worksheet_count; rank tertiles within official instruction type",
+      "population_count": 400,
+      "file_sha256": {
+        "spreadsheetbench_verified_400.tar.gz": "10ef893dd29cb13ab97143ea787e68cdc9574a13873ab9a54e50b31dc03fc949"
+      },
+      "strata": {
+        "cell_low": {"population_count": 91, "selected_ids": ["40892", "50952", "51586", "39046"], "holdout_ids": ["39046"]},
+        "cell_medium": {"population_count": 92, "selected_ids": ["57612", "55049", "49300", "48365"], "holdout_ids": ["48365"]},
+        "cell_high": {"population_count": 92, "selected_ids": ["52216", "50324", "11842", "55976"], "holdout_ids": ["55976"]},
+        "sheet_low": {"population_count": 41, "selected_ids": ["440-24", "384-4", "236-22", "147-48"], "holdout_ids": ["147-48"]},
+        "sheet_medium": {"population_count": 42, "selected_ids": ["488-14", "567-21", "395-36", "448-11"], "holdout_ids": ["448-11"]},
+        "sheet_high": {"population_count": 42, "selected_ids": ["370-43", "17-35", "353-6", "283-32"], "holdout_ids": ["283-32"]}
+      }
+    },
+    "gaia": {
+      "dataset_id": "gaia-benchmark/GAIA",
+      "revision": "682dd723ee1e1697e00360edccf2366dc8418dd9",
+      "license": "upstream-gated-terms",
+      "access_policy": "gated-no-redistribution",
+      "grader": "gaia_exact_match_2023",
+      "selection_key": "42:gaia:{stratum}:{source_task_id}",
+      "supported_file_extensions": ["", ".png", ".jpg", ".jpeg", ".xlsx", ".csv", ".txt"],
+      "file_sha256": {
+        "2023/validation/metadata.parquet": "d9141bad0081af438d1ee36d188c5197035dc22a01f64e3f2ee17e45469518e9",
+        "2023/validation/5cfb274c-0207-4aa7-9575-6ac0bd95d9b2.xlsx": "439ea4a6a10b6121d7f386d84e69e606b073f32a6d82fad639587f98f468cf1f",
+        "2023/validation/9318445f-fe6a-4e1b-acbf-c68228c9906a.png": "66556e6fcc8f881d57f8a97564932eccae691076e82fa07aaa38c9f94f4c2cf0",
+        "2023/validation/cca70ce6-1952-45d2-acd4-80c903b0bc49.png": "7025514d2c11ec0bcc04a85b414f922427e5757652e0f232d389387727049851"
+      },
+      "strata": {
+        "1": {"population_count": 48, "selected_ids": ["b816bfce-3d80-4913-a07d-69b752ce6377", "9318445f-fe6a-4e1b-acbf-c68228c9906a", "b415aba4-4b68-4fc6-9b89-2c812e55a3e1", "5cfb274c-0207-4aa7-9575-6ac0bd95d9b2"], "holdout_ids": ["5cfb274c-0207-4aa7-9575-6ac0bd95d9b2"]},
+        "2": {"population_count": 80, "selected_ids": ["48eb8242-1099-4c26-95d4-ef22b002457a", "cca70ce6-1952-45d2-acd4-80c903b0bc49", "71345b0a-9c7d-4b50-b2bf-937ec5879845", "dd3c7503-f62a-4bd0-9f67-1b63b94194cc"], "holdout_ids": ["dd3c7503-f62a-4bd0-9f67-1b63b94194cc"]},
+        "3": {"population_count": 24, "selected_ids": ["851e570a-e3de-4d84-bcfa-cc85578baa59", "676e5e31-a554-4acc-9286-b60d90a92d26", "e961a717-6b25-4175-8a68-874d28190ee4", "00d579ea-0889-4fd9-a771-2c8d79835c8d"], "holdout_ids": ["00d579ea-0889-4fd9-a771-2c8d79835c8d"]}
+      }
+    }
+  },
+  "profiles": {
+    "local-core": ["bfcl", "spreadsheetbench"],
+    "local-plus-gaia": ["bfcl", "spreadsheetbench", "gaia"]
+  }
+}
