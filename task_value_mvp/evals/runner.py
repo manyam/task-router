@@ -18,6 +18,7 @@ import urllib.request
 from collections import Counter
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+from functools import cmp_to_key
 from pathlib import Path
 from typing import Any
 
@@ -83,6 +84,7 @@ class OpenAICompatibleClient:
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None,
         max_output_tokens: int,
+        deadline: float | None = None,
     ) -> ApiResponse:
         payload: dict[str, Any] = {
             "model": self.model.api_model,
@@ -108,8 +110,14 @@ class OpenAICompatibleClient:
         started = time.perf_counter()
         last_error: Exception | None = None
         for attempt in range(3):
+            timeout = self.timeout_seconds
+            if deadline is not None:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError("Task time limit exceeded")
+                timeout = max(1, min(timeout, int(remaining) + 1))
             try:
-                with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
+                with urllib.request.urlopen(request, timeout=timeout) as response:
                     value = json.loads(response.read().decode("utf-8"))
                 break
             except urllib.error.HTTPError as exc:
@@ -120,7 +128,10 @@ class OpenAICompatibleClient:
                 last_error = exc
             if attempt == 2:
                 raise RuntimeError(f"Model API failed after retries: {last_error}") from last_error
-            time.sleep(0.25 * (2**attempt))
+            backoff = 0.25 * (2**attempt)
+            if deadline is not None and deadline - time.monotonic() <= backoff:
+                raise TimeoutError("Task time limit exceeded")
+            time.sleep(backoff)
         latency = (time.perf_counter() - started) * 1000
         try:
             message = value["choices"][0]["message"]
@@ -164,18 +175,21 @@ def _workbook_summary(path: Path, max_rows: int = 18, max_columns: int = 14) -> 
     import openpyxl
 
     workbook = openpyxl.load_workbook(path, data_only=False, read_only=True)
-    sections = []
-    for sheet in workbook.worksheets[:8]:
-        rows = []
-        for row in sheet.iter_rows(
-            min_row=1, max_row=min(sheet.max_row, max_rows), max_col=min(sheet.max_column, max_columns), values_only=True
-        ):
-            rows.append(list(row))
-        sections.append(
-            f"Sheet {sheet.title!r} ({sheet.max_row}x{sheet.max_column}) sample:\n"
-            + json.dumps(rows, default=str)[:8000]
-        )
-    return "\n\n".join(sections)
+    try:
+        sections = []
+        for sheet in workbook.worksheets[:8]:
+            rows = []
+            for row in sheet.iter_rows(
+                min_row=1, max_row=min(sheet.max_row, max_rows), max_col=min(sheet.max_column, max_columns), values_only=True
+            ):
+                rows.append(list(row))
+            sections.append(
+                f"Sheet {sheet.title!r} ({sheet.max_row}x{sheet.max_column}) sample:\n"
+                + json.dumps(rows, default=str)[:8000]
+            )
+        return "\n\n".join(sections)
+    finally:
+        workbook.close()
 
 
 def _asset_content(task: EvalTask) -> list[dict[str, Any]]:
@@ -314,8 +328,18 @@ def _remaining_timeout(client: OpenAICompatibleClient, deadline: float) -> int:
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise TimeoutError("Task time limit exceeded")
-    client.timeout_seconds = max(1, min(client.timeout_seconds, int(remaining) + 1))
-    return client.timeout_seconds
+    return max(1, min(client.timeout_seconds, int(remaining) + 1))
+
+
+def _sort_cell_key(value: Any) -> tuple[int, Any]:
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return (0, float(value))
+    if isinstance(value, str):
+        try:
+            return (0, float(value))
+        except ValueError:
+            return (1, value.lower())
+    return (1, str(value).lower())
 
 
 def _spreadsheet_action(path: Path, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -324,56 +348,90 @@ def _spreadsheet_action(path: Path, arguments: dict[str, Any]) -> dict[str, Any]
     from openpyxl.utils.cell import range_boundaries
 
     workbook = openpyxl.load_workbook(path)
-    operation = arguments.get("operation")
-    if operation == "list_sheets":
-        return {"sheets": [{"name": sheet.title, "rows": sheet.max_row, "columns": sheet.max_column} for sheet in workbook]}
-    if operation == "finish":
-        return {"finished": True}
-    sheet_name = arguments.get("sheet")
-    if sheet_name not in workbook.sheetnames:
-        return {"error": f"unknown sheet: {sheet_name}"}
-    sheet = workbook[sheet_name]
-    if operation == "read_range":
-        min_col, min_row, max_col, max_row = range_boundaries(arguments["range"])
-        if (max_col - min_col + 1) * (max_row - min_row + 1) > 500:
-            return {"error": "read range exceeds 500 cells"}
-        values = [
-            [sheet.cell(row=row, column=column).value for column in range(min_col, max_col + 1)]
-            for row in range(min_row, max_row + 1)
-        ]
-        return {"range": arguments["range"], "values": values}
-    if operation == "write_cells":
-        cells = arguments.get("cells") or []
-        if len(cells) > 500:
-            return {"error": "write exceeds 500 cells"}
-        for item in cells:
-            sheet[item["cell"]] = item.get("value")
-    elif operation == "copy_range":
-        min_col, min_row, max_col, max_row = range_boundaries(arguments["range"])
-        destination = sheet[arguments["destination"]]
-        for row_offset, row in enumerate(range(min_row, max_row + 1)):
-            for col_offset, column in enumerate(range(min_col, max_col + 1)):
-                source = sheet.cell(row=row, column=column)
-                target = sheet.cell(row=destination.row + row_offset, column=destination.column + col_offset)
-                target.value = source.value
-                if source.has_style:
-                    target._style = copy(source._style)
-    elif operation == "insert_rows":
-        sheet.insert_rows(int(arguments["row"]), amount=max(1, int(arguments.get("amount", 1))))
-    elif operation == "delete_rows":
-        sheet.delete_rows(int(arguments["row"]), amount=max(1, int(arguments.get("amount", 1))))
-    elif operation == "sort_range":
-        min_col, min_row, max_col, max_row = range_boundaries(arguments["range"])
-        rows = [[sheet.cell(row=row, column=column).value for column in range(min_col, max_col + 1)] for row in range(min_row, max_row + 1)]
-        keys = [max(1, int(value)) - 1 for value in arguments.get("key_columns") or [1]]
-        rows.sort(key=lambda row: tuple((row[index] is None, str(row[index])) for index in keys), reverse=bool(arguments.get("reverse")))
-        for row_offset, values in enumerate(rows):
-            for col_offset, value in enumerate(values):
-                sheet.cell(row=min_row + row_offset, column=min_col + col_offset).value = value
-    else:
-        return {"error": f"unsupported operation: {operation}"}
-    workbook.save(path)
-    return {"ok": True, "operation": operation}
+    try:
+        operation = arguments.get("operation")
+        if operation == "list_sheets":
+            return {"sheets": [{"name": sheet.title, "rows": sheet.max_row, "columns": sheet.max_column} for sheet in workbook]}
+        if operation == "finish":
+            return {"finished": True}
+        sheet_name = arguments.get("sheet")
+        if sheet_name not in workbook.sheetnames:
+            return {"error": f"unknown sheet: {sheet_name}"}
+        sheet = workbook[sheet_name]
+        if operation == "read_range":
+            min_col, min_row, max_col, max_row = range_boundaries(arguments["range"])
+            if (max_col - min_col + 1) * (max_row - min_row + 1) > 500:
+                return {"error": "read range exceeds 500 cells"}
+            values = [
+                [sheet.cell(row=row, column=column).value for column in range(min_col, max_col + 1)]
+                for row in range(min_row, max_row + 1)
+            ]
+            return {"range": arguments["range"], "values": values}
+        if operation == "write_cells":
+            cells = arguments.get("cells") or []
+            if len(cells) > 500:
+                return {"error": "write exceeds 500 cells"}
+            for item in cells:
+                sheet[item["cell"]] = item.get("value")
+        elif operation == "copy_range":
+            min_col, min_row, max_col, max_row = range_boundaries(arguments["range"])
+            destination = sheet[arguments["destination"]]
+            for row_offset, row in enumerate(range(min_row, max_row + 1)):
+                for col_offset, column in enumerate(range(min_col, max_col + 1)):
+                    source = sheet.cell(row=row, column=column)
+                    target = sheet.cell(row=destination.row + row_offset, column=destination.column + col_offset)
+                    target.value = source.value
+                    if source.has_style:
+                        target._style = copy(source._style)
+        elif operation == "insert_rows":
+            sheet.insert_rows(int(arguments["row"]), amount=max(1, int(arguments.get("amount", 1))))
+        elif operation == "delete_rows":
+            sheet.delete_rows(int(arguments["row"]), amount=max(1, int(arguments.get("amount", 1))))
+        elif operation == "sort_range":
+            min_col, min_row, max_col, max_row = range_boundaries(arguments["range"])
+            width = max_col - min_col + 1
+            rows = [
+                [sheet.cell(row=row, column=column).value for column in range(min_col, max_col + 1)]
+                for row in range(min_row, max_row + 1)
+            ]
+            keys: list[int] = []
+            for raw_col in arguments.get("key_columns") or [1]:
+                col_int = int(raw_col)
+                if 1 <= col_int <= width:
+                    keys.append(col_int - 1)
+                elif min_col <= col_int <= max_col:
+                    keys.append(col_int - min_col)
+                else:
+                    return {"error": f"key_column {col_int} is out of range"}
+            reverse = bool(arguments.get("reverse"))
+
+            def _compare_rows(left: list[Any], right: list[Any]) -> int:
+                for index in keys:
+                    lv, rv = left[index], right[index]
+                    l_empty = lv is None or lv == ""
+                    r_empty = rv is None or rv == ""
+                    if l_empty and r_empty:
+                        continue
+                    if l_empty:
+                        return 1
+                    if r_empty:
+                        return -1
+                    lk, rk = _sort_cell_key(lv), _sort_cell_key(rv)
+                    if lk != rk:
+                        order = -1 if lk < rk else 1
+                        return -order if reverse else order
+                return 0
+
+            rows.sort(key=cmp_to_key(_compare_rows))
+            for row_offset, values in enumerate(rows):
+                for col_offset, value in enumerate(values):
+                    sheet.cell(row=min_row + row_offset, column=min_col + col_offset).value = value
+        else:
+            return {"error": f"unsupported operation: {operation}"}
+        workbook.save(path)
+        return {"ok": True, "operation": operation}
+    finally:
+        workbook.close()
 
 
 def _recalculate_workbook(path: Path, deadline: float) -> bool:
@@ -409,6 +467,8 @@ def _spreadsheet_case(
     deadline: float,
 ) -> tuple[list[ApiResponse], list[dict[str, Any]]]:
     shutil.copy2(input_path, output_path)
+    answer_sheet = task.grader_payload.get("answer_sheet")
+    sheet_line = f"Target answer sheet: {answer_sheet}\n" if answer_sheet else ""
     messages: list[dict[str, Any]] = [
         {
             "role": "system",
@@ -416,7 +476,7 @@ def _spreadsheet_case(
         },
         {
             "role": "user",
-            "content": f"Instruction:\n{task.prompt}\n\nTarget answer position: {task.grader_payload['answer_position']}\n\n{_workbook_summary(output_path)}",
+            "content": f"Instruction:\n{task.prompt}\n\n{sheet_line}Target answer position: {task.grader_payload['answer_position']}\n\n{_workbook_summary(output_path)}",
         },
     ]
     responses = []
@@ -424,13 +484,15 @@ def _spreadsheet_case(
     calls_used = 0
     while calls_used < config.max_tool_calls:
         _remaining_timeout(client, deadline)
-        response = client.complete(messages, [SPREADSHEET_TOOL], config.max_output_tokens)
+        response = client.complete(messages, [SPREADSHEET_TOOL], config.max_output_tokens, deadline=deadline)
         responses.append(response)
-        messages.append({"role": "assistant", "content": response.text or None, "tool_calls": response.raw_message.get("tool_calls") or []})
-        if not response.tool_calls:
+        allowed_calls = response.tool_calls[: config.max_tool_calls - calls_used]
+        raw_calls = (response.raw_message.get("tool_calls") or [])[: len(allowed_calls)]
+        messages.append({"role": "assistant", "content": response.text or None, "tool_calls": raw_calls})
+        if not allowed_calls:
             break
         finished = False
-        for call in response.tool_calls:
+        for call in allowed_calls:
             calls_used += 1
             try:
                 arguments = json.loads(call["arguments"]) if isinstance(call["arguments"], str) else call["arguments"]
@@ -441,8 +503,6 @@ def _spreadsheet_case(
             actions.append({"arguments": arguments, "result": result})
             messages.append({"role": "tool", "tool_call_id": call.get("id") or f"call-{calls_used}", "content": json.dumps(result, default=str)[: config.max_tool_output_chars]})
             finished = finished or bool(result.get("finished"))
-            if calls_used >= config.max_tool_calls:
-                break
         if finished:
             break
     return responses, actions
@@ -460,12 +520,14 @@ def _gaia_case(
     calls_used = 0
     while calls_used < config.max_tool_calls:
         timeout = _remaining_timeout(client, deadline)
-        response = client.complete(messages, GAIA_TOOLS, config.max_output_tokens)
+        response = client.complete(messages, GAIA_TOOLS, config.max_output_tokens, deadline=deadline)
         responses.append(response)
-        messages.append({"role": "assistant", "content": response.text or None, "tool_calls": response.raw_message.get("tool_calls") or []})
-        if not response.tool_calls:
+        allowed_calls = response.tool_calls[: config.max_tool_calls - calls_used]
+        raw_calls = (response.raw_message.get("tool_calls") or [])[: len(allowed_calls)]
+        messages.append({"role": "assistant", "content": response.text or None, "tool_calls": raw_calls})
+        if not allowed_calls:
             break
-        for call in response.tool_calls:
+        for call in allowed_calls:
             calls_used += 1
             try:
                 arguments = json.loads(call["arguments"]) if isinstance(call["arguments"], str) else call["arguments"]
@@ -481,8 +543,11 @@ def _gaia_case(
                 content = json.dumps({"error": f"{type(exc).__name__}: {exc}"})
             actions.append({"name": call["name"], "arguments": arguments, "result": content[: config.max_tool_output_chars]})
             messages.append({"role": "tool", "tool_call_id": call.get("id") or f"call-{calls_used}", "content": content[: config.max_tool_output_chars]})
-            if calls_used >= config.max_tool_calls:
-                break
+    if messages and messages[-1].get("role") == "tool":
+        _remaining_timeout(client, deadline)
+        final_response = client.complete(messages, None, config.max_output_tokens, deadline=deadline)
+        responses.append(final_response)
+        messages.append({"role": "assistant", "content": final_response.text or None, "tool_calls": []})
     return responses, actions
 
 
@@ -518,7 +583,12 @@ def run_one(
     deadline = time.monotonic() + config.timeout_seconds
     try:
         if task.source == "bfcl":
-            response = client.complete(task.metadata["messages"], _openai_tools(task.metadata["functions"]), config.max_output_tokens)
+            response = client.complete(
+                task.metadata["messages"],
+                _openai_tools(task.metadata["functions"]),
+                config.max_output_tokens,
+                deadline=deadline,
+            )
             responses.append(response)
             grade = grade_bfcl(task, response.tool_calls)
             trace["tool_calls"] = response.tool_calls

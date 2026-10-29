@@ -122,8 +122,13 @@ def _excel_value(value: Any) -> Any:
     if isinstance(value, dt.time):
         return value.strftime("%H:%M")
     if isinstance(value, dt.datetime):
+        if value.tzinfo is not None:
+            value = value.astimezone(dt.timezone.utc).replace(tzinfo=None)
         start = dt.datetime(1899, 12, 30)
         return round((value - start).total_seconds() / 86400.0, 0)
+    if isinstance(value, dt.date):
+        start = dt.date(1899, 12, 30)
+        return float((value - start).days)
     if isinstance(value, str):
         try:
             return round(float(value), 2)
@@ -147,32 +152,46 @@ def _cell_names(cell_range: str) -> list[str]:
     ]
 
 
-def compare_workbooks(answer_file: Path, output_file: Path, answer_position: str) -> tuple[bool, str]:
+def compare_workbooks(
+    answer_file: Path,
+    output_file: Path,
+    answer_position: str,
+    answer_sheet: str | None = None,
+) -> tuple[bool, str]:
     if not output_file.exists():
         return False, "output file is missing"
+    expected = None
+    actual = None
     try:
         import openpyxl
 
         expected = openpyxl.load_workbook(answer_file, data_only=True)
         actual = openpyxl.load_workbook(output_file, data_only=True)
     except Exception as exc:
+        if expected is not None:
+            expected.close()
         return False, f"workbook could not be opened: {exc}"
-    for segment in answer_position.split(","):
-        segment = segment.strip()
-        if "!" in segment:
-            sheet, cell_range = segment.split("!", 1)
-            sheet = sheet.strip("'")
-        else:
-            sheet, cell_range = expected.sheetnames[0], segment
-        cell_range = cell_range.strip("'").replace(" ", "")
-        if sheet not in expected.sheetnames or sheet not in actual.sheetnames:
-            return False, f"worksheet is missing: {sheet}"
-        for cell_name in _cell_names(cell_range):
-            left = _excel_value(expected[sheet][cell_name].value)
-            right = _excel_value(actual[sheet][cell_name].value)
-            if left != right:
-                return False, f"value differs at {sheet}!{cell_name}"
-    return True, ""
+    try:
+        default_sheet = answer_sheet.strip("'") if answer_sheet else expected.sheetnames[0]
+        for segment in answer_position.split(","):
+            segment = segment.strip()
+            if "!" in segment:
+                sheet, cell_range = segment.split("!", 1)
+                sheet = sheet.strip("'")
+            else:
+                sheet, cell_range = default_sheet, segment
+            cell_range = cell_range.strip("'").replace(" ", "")
+            if sheet not in expected.sheetnames or sheet not in actual.sheetnames:
+                return False, f"worksheet is missing: {sheet}"
+            for cell_name in _cell_names(cell_range):
+                left = _excel_value(expected[sheet][cell_name].value)
+                right = _excel_value(actual[sheet][cell_name].value)
+                if left != right:
+                    return False, f"value differs at {sheet}!{cell_name}"
+        return True, ""
+    finally:
+        expected.close()
+        actual.close()
 
 
 def grade_spreadsheet(task: EvalTask, output_files: list[Path]) -> GradeResult:
@@ -182,8 +201,14 @@ def grade_spreadsheet(task: EvalTask, output_files: list[Path]) -> GradeResult:
     case_results = []
     errors = []
     severe = False
+    answer_sheet = task.grader_payload.get("answer_sheet")
     for answer, output in zip(answers, output_files):
-        passed, error = compare_workbooks(answer, output, task.grader_payload["answer_position"])
+        passed, error = compare_workbooks(
+            answer,
+            output,
+            task.grader_payload["answer_position"],
+            answer_sheet=answer_sheet,
+        )
         case_results.append(int(passed))
         errors.append(error)
         severe = severe or "could not be opened" in error

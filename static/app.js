@@ -116,18 +116,19 @@ function renderEvals() {
     return;
   }
   empty.hidden = true; content.hidden = false;
-  const gate = report?.promotion_gate, router = report?.router;
+  const gate = report?.promotion_gate, router = report?.router, failed = metadata.status === "failed";
   document.getElementById("eval-summary-cards").innerHTML = [
     card("Profile", metadata.profile, `${metadata.task_count} tasks`),
-    card("Calibration", router ? router.brier_score.toFixed(3) : "In progress", router ? `ECE ${router.expected_calibration_error.toFixed(3)}` : `${metadata.models?.length || 0} configured models`),
+    card("Calibration", router ? router.brier_score.toFixed(3) : (failed ? "Failed" : "In progress"), router ? `ECE ${router.expected_calibration_error.toFixed(3)}` : (failed ? (metadata.error || "Run failed") : `${metadata.models?.length || 0} configured models`)),
     card("Router cost savings", router?.cost_savings_vs_premium == null ? "—" : percent(router.cost_savings_vs_premium), "Versus premium-only on holdout"),
     card("Promotion", gate?.passed ? "Passed" : "Experimental", gate?.passed ? "All holdout checks passed" : "Current recommendation path retained")
   ].join("");
-  const runStatus = document.getElementById("eval-run-status"); runStatus.textContent = metadata.status; runStatus.className = `pill ${metadata.status === "complete" ? "pass" : "pending"}`;
+  const runStatus = document.getElementById("eval-run-status"); runStatus.textContent = metadata.status; runStatus.className = `pill ${metadata.status === "complete" ? "pass" : (failed ? "fail" : "pending")}`;
   document.getElementById("eval-gate-status").textContent = gate?.passed ? "Passed" : "Experimental";
   document.getElementById("eval-gate-status").className = `pill ${gate?.passed ? "pass" : "pending"}`;
   const modelRoles = Object.fromEntries((metadata.models || []).map(model => [model.alias, model.role]));
-  document.getElementById("eval-model-rows").innerHTML = report ? Object.entries(report.per_model).map(([alias, item]) => `<tr><td><strong>${escapeHtml(alias)}</strong><div class="task-sub">${escapeHtml(modelRoles[alias] || "")}</div></td><td>${percent(item.pass_rate)}</td><td>${percent(item.mean_score)}</td><td>${money(item.cost_per_pass_usd)}</td><td>${(item.p50_latency_ms / 1000).toFixed(1)}s / ${(item.p95_latency_ms / 1000).toFixed(1)}s</td><td>${item.severe_failures} severe · ${item.errors} errors</td></tr>`).join("") : `<tr><td colspan="6">The run is still in progress.</td></tr>`;
+  const emptyMessage = failed ? `Run failed: ${escapeHtml(metadata.error || "No report generated.")}` : "The run is still in progress.";
+  document.getElementById("eval-model-rows").innerHTML = report ? Object.entries(report.per_model).map(([alias, item]) => `<tr><td><strong>${escapeHtml(alias)}</strong><div class="task-sub">${escapeHtml(modelRoles[alias] || "")}</div></td><td>${percent(item.pass_rate)}</td><td>${percent(item.mean_score)}</td><td>${money(item.cost_per_pass_usd)}</td><td>${(item.p50_latency_ms / 1000).toFixed(1)}s / ${(item.p95_latency_ms / 1000).toFixed(1)}s</td><td>${item.severe_failures} severe · ${item.errors} errors</td></tr>`).join("") : `<tr><td colspan="6">${emptyMessage}</td></tr>`;
   document.getElementById("eval-source-rows").innerHTML = report ? Object.entries(report.per_source).map(([source, item]) => `<tr><td><strong>${escapeHtml(source)}</strong><div class="task-sub">${percent(item.coverage)} coverage</div></td><td>${item.tasks}</td><td>${percent(item.pass_rate)}</td><td>${percent(item.mean_score)}</td><td>${item.errors}</td></tr>`).join("") : "";
   document.getElementById("eval-baseline-rows").innerHTML = report ? Object.entries(report.baselines).map(([name, item]) => `<tr class="${name === "evidence_router" ? "selected" : ""}"><td><strong>${escapeHtml(name.replaceAll("_", " "))}</strong></td><td>${percent(item.coverage)}</td><td>${percent(item.pass_rate)}</td><td>${money(item.cost_per_pass_usd)}</td><td>${percent(item.mean_quality_regret)}</td></tr>`).join("") : "";
   document.getElementById("eval-gate-list").innerHTML = gate ? Object.entries(gate.checks).map(([name, passed]) => `<div class="gate-check ${passed ? "passed" : "failed"}"><span>${passed ? "✓" : "×"}</span><strong>${escapeHtml(name.replaceAll("_", " "))}</strong></div>`).join("") : `<p class="method-note">Available after the run is complete.</p>`;

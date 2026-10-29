@@ -48,6 +48,7 @@ main { max-width: 1500px; margin: 0 auto; padding: 1.4rem 2rem 3rem; }
 .pill.test { background: #f6e6db; color: #9a4d25; }
 .pill.pass { background: var(--green-soft); color: var(--green); }
 .pill.pending { background: #fff2d9; color: #8a5a20; }
+.pill.fail { background: #f6e6db; color: #9a4d25; }
 .filters { display: grid; grid-template-columns: 1.6fr repeat(3, 1fr); gap: .55rem; padding: .8rem 1rem; border-bottom: 1px solid var(--line); }
 input, select { width: 100%; border: 1px solid var(--line); border-radius: 7px; padding: .62rem .7rem; background: white; color: var(--ink); font: inherit; font-size: .8rem; }
 .table-wrap { overflow-x: auto; }

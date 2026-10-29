@@ -88,6 +88,16 @@ def _summary(cells: list[dict[str, Any]], expected: int | None = None) -> dict[s
     }
 
 
+BASELINE_NAMES = (
+    "cheapest_only",
+    "premium_only",
+    "seeded_random",
+    "current_heuristic",
+    "evidence_router",
+    "oracle",
+)
+
+
 def _fit_predictions(cells: dict[tuple[str, str], dict[str, Any]], models: list[str]) -> dict[tuple[str, str], float]:
     calibration = [cell for cell in cells.values() if cell["split"] == "calibration"]
     model_rates = {}
@@ -103,6 +113,30 @@ def _fit_predictions(cells: dict[tuple[str, str], dict[str, Any]], models: list[
         values = groups.get(key, [])
         predictions[(cell["eval_id"], cell["model_alias"])] = (
             sum(values) + 2.0 * model_rates[cell["model_alias"]]
+        ) / (len(values) + 2.0)
+    return predictions
+
+
+def _fit_cost_predictions(
+    cells: dict[tuple[str, str], dict[str, Any]],
+    model_metadata: list[dict[str, Any]],
+) -> dict[tuple[str, str], float]:
+    calibration = [cell for cell in cells.values() if cell["split"] == "calibration"]
+    model_costs = {}
+    for item in model_metadata:
+        alias = item["alias"]
+        values = [float(cell["cost_usd"]) for cell in calibration if cell["model_alias"] == alias]
+        fallback = (float(item["input_per_million_usd"]) + float(item["output_per_million_usd"])) / 1_000_000
+        model_costs[alias] = statistics.fmean(values) if values else fallback
+    groups: dict[tuple[str, str, str], list[float]] = defaultdict(list)
+    for cell in calibration:
+        groups[(cell["model_alias"], cell["source"], cell["category"])].append(float(cell["cost_usd"]))
+    predictions = {}
+    for cell in cells.values():
+        key = (cell["model_alias"], cell["source"], cell["category"])
+        values = groups.get(key, [])
+        predictions[(cell["eval_id"], cell["model_alias"])] = (
+            sum(values) + 2.0 * model_costs[cell["model_alias"]]
         ) / (len(values) + 2.0)
     return predictions
 
@@ -138,13 +172,22 @@ def _choose_baselines(
     task_cells: dict[str, dict[str, Any]],
     model_metadata: list[dict[str, Any]],
     predictions: dict[tuple[str, str], float],
+    predicted_costs: dict[tuple[str, str], float],
+    budget: float,
 ) -> dict[str, str | None]:
     aliases = [item["alias"] for item in model_metadata]
     roles = {item["role"]: item["alias"] for item in model_metadata}
-    max_prediction = max(predictions[(task_id, alias)] for alias in aliases)
-    eligible = [alias for alias in aliases if predictions[(task_id, alias)] >= max_prediction - 0.03]
-    predicted_cost = {alias: task_cells[alias]["cost_usd"] for alias in aliases}
-    evidence = min(eligible, key=lambda alias: (predicted_cost[alias], alias)) if max_prediction >= 0.5 else None
+    budget_feasible = [
+        alias
+        for alias in aliases
+        if predictions[(task_id, alias)] >= 0.5 and predicted_costs[(task_id, alias)] <= budget
+    ]
+    if budget_feasible:
+        max_prediction = max(predictions[(task_id, alias)] for alias in budget_feasible)
+        eligible = [alias for alias in budget_feasible if predictions[(task_id, alias)] >= max_prediction - 0.03]
+        evidence = min(eligible, key=lambda alias: (predicted_costs[(task_id, alias)], alias))
+    else:
+        evidence = None
     oracle = max(aliases, key=lambda alias: (task_cells[alias]["score"], -task_cells[alias]["cost_usd"]))
     random_alias = aliases[int(hashlib.sha256(f"42:{task_id}".encode()).hexdigest(), 16) % len(aliases)]
     source = next(iter(task_cells.values()))["source"]
@@ -217,6 +260,7 @@ def generate_report(run_dir: Path) -> dict[str, Any]:
     model_metadata = metadata["models"]
     aliases = [item["alias"] for item in model_metadata]
     predictions = _fit_predictions(cells, aliases)
+    predicted_costs = _fit_cost_predictions(cells, model_metadata)
 
     expected_tasks = int(metadata["task_count"])
     per_model = {alias: _summary([cell for cell in cells.values() if cell["model_alias"] == alias], expected_tasks) for alias in aliases}
@@ -225,7 +269,8 @@ def generate_report(run_dir: Path) -> dict[str, Any]:
         source: len({cell["eval_id"] for cell in cells.values() if cell["source"] == source}) for source in sources
     }
     per_source = {source: _summary([cell for cell in cells.values() if cell["source"] == source], int(source_counts[source]) * len(aliases)) for source in sources}
-    holdout_ids = sorted({cell["eval_id"] for cell in cells.values() if cell["split"] == "holdout"})
+    all_holdout_ids = sorted({cell["eval_id"] for cell in cells.values() if cell["split"] == "holdout"})
+    holdout_ids = [task_id for task_id in all_holdout_ids if all((task_id, alias) in cells for alias in aliases)]
     baseline_rows: dict[str, list[tuple[dict[str, Any] | None, dict[str, dict[str, Any]]]]] = defaultdict(list)
     abstentions = []
     calibration_points = []
@@ -234,7 +279,7 @@ def generate_report(run_dir: Path) -> dict[str, Any]:
     source_router: dict[str, list[tuple[dict[str, Any] | None, dict[str, dict[str, Any]]]]] = defaultdict(list)
     for task_id in holdout_ids:
         task_cells = {alias: cells[(task_id, alias)] for alias in aliases}
-        choices = _choose_baselines(task_id, task_cells, model_metadata, predictions)
+        choices = _choose_baselines(task_id, task_cells, model_metadata, predictions, predicted_costs, budget)
         for name, alias in choices.items():
             baseline_rows[name].append((task_cells[alias] if alias else None, task_cells))
         evidence_alias = choices["evidence_router"]
@@ -247,8 +292,8 @@ def generate_report(run_dir: Path) -> dict[str, Any]:
         for alias in aliases:
             calibration_points.append((predictions[(task_id, alias)], float(task_cells[alias]["passed"])))
 
-    baselines = {name: _baseline_summary(rows) for name, rows in baseline_rows.items()}
-    evidence_rows = baseline_rows["evidence_router"]
+    baselines = {name: _baseline_summary(baseline_rows.get(name, [])) for name in BASELINE_NAMES}
+    evidence_rows = baseline_rows.get("evidence_router", [])
     evidence = baselines["evidence_router"]
     premium = baselines["premium_only"]
     premium_alias = next(item["alias"] for item in model_metadata if item["role"] == "premium")
@@ -264,14 +309,15 @@ def generate_report(run_dir: Path) -> dict[str, Any]:
         premium_source = _baseline_summary([(task_cells[premium_alias], task_cells) for _, task_cells in rows])
         source_gaps[source] = premium_source["pass_rate"] - routed["pass_rate"]
     budget_rate = budget_violations / len(holdout_ids) if holdout_ids else 0.0
+    holdout_ready = bool(holdout_ids) and len(holdout_ids) == len(all_holdout_ids)
     promotion_checks = {
-        "cost_savings_at_least_20_percent": cost_savings is not None and cost_savings >= 0.20,
-        "overall_quality_noninferiority": premium["pass_rate"] - evidence["pass_rate"] <= 0.03,
-        "per_source_quality_noninferiority": all(gap <= 0.05 for gap in source_gaps.values()),
-        "no_severe_failure_increase": evidence["severe_failures"] <= premium["severe_failures"],
-        "budget_violations_at_most_1_percent": budget_rate <= 0.01,
-        "confidence_interval_supports_savings": bool(intervals["cost_savings_95ci"] and intervals["cost_savings_95ci"][0] > 0),
-        "confidence_interval_supports_quality": bool(intervals["quality_gap_95ci"] and intervals["quality_gap_95ci"][1] <= 0.03),
+        "cost_savings_at_least_20_percent": holdout_ready and cost_savings is not None and cost_savings >= 0.20,
+        "overall_quality_noninferiority": holdout_ready and premium["pass_rate"] - evidence["pass_rate"] <= 0.03,
+        "per_source_quality_noninferiority": holdout_ready and bool(source_gaps) and all(gap <= 0.05 for gap in source_gaps.values()),
+        "no_severe_failure_increase": holdout_ready and evidence["severe_failures"] <= premium["severe_failures"],
+        "budget_violations_at_most_1_percent": holdout_ready and budget_rate <= 0.01,
+        "confidence_interval_supports_savings": holdout_ready and bool(intervals["cost_savings_95ci"] and intervals["cost_savings_95ci"][0] > 0),
+        "confidence_interval_supports_quality": holdout_ready and bool(intervals["quality_gap_95ci"] and intervals["quality_gap_95ci"][1] <= 0.03),
     }
     promotion_passed = all(promotion_checks.values())
     report = {

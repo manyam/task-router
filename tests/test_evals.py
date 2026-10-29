@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import datetime as dt
 import json
 import hashlib
 import os
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -11,10 +13,16 @@ from urllib.error import HTTPError
 
 import openpyxl
 
-from task_value_mvp.evals.graders import grade_bfcl, grade_gaia, grade_spreadsheet
+from task_value_mvp.evals.graders import _excel_value, grade_bfcl, grade_gaia, grade_spreadsheet
 from task_value_mvp.evals.manifest import load_manifest, validate_tasks
 from task_value_mvp.evals.reporting import generate_report
-from task_value_mvp.evals.runner import OpenAICompatibleClient, load_models_config
+from task_value_mvp.evals.runner import (
+    OpenAICompatibleClient,
+    RunConfig,
+    _gaia_case,
+    _spreadsheet_action,
+    load_models_config,
+)
 from task_value_mvp.evals.schema import EvalResult, EvalTask, ModelConfig
 
 
@@ -105,6 +113,43 @@ class GraderTests(unittest.TestCase):
             self.assertFalse(corrupt_result.passed)
             self.assertTrue(corrupt_result.severe_failure)
 
+            # Bare answer_position without '!' should resolve against answer_sheet
+            bare_fixture = task(
+                source="spreadsheetbench",
+                category="Cell-Level",
+                grader_payload={"answer_files": [str(answer)], "answer_position": "B2", "answer_sheet": "Results"},
+            )
+            self.assertTrue(grade_spreadsheet(bare_fixture, [good]).passed)
+            self.assertFalse(grade_spreadsheet(bare_fixture, [wrong]).passed)
+
+    def test_spreadsheet_date_and_datetime_equivalence(self) -> None:
+        self.assertEqual(
+            _excel_value(dt.date(2025, 3, 15)),
+            _excel_value(dt.datetime(2025, 3, 15, 0, 0)),
+        )
+        self.assertEqual(
+            _excel_value(dt.date(2025, 3, 15)),
+            _excel_value(dt.datetime(2025, 3, 15, 0, 0, tzinfo=dt.timezone.utc)),
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            answer = root / "answer.xlsx"
+            output = root / "output.xlsx"
+            for path, value in (
+                (answer, dt.date(2025, 3, 15)),
+                (output, _excel_value(dt.date(2025, 3, 15))),
+            ):
+                workbook = openpyxl.Workbook()
+                workbook.active["A1"] = value
+                workbook.save(path)
+                workbook.close()
+            fixture = task(
+                source="spreadsheetbench",
+                category="Cell-Level",
+                grader_payload={"answer_files": [str(answer)], "answer_position": "A1"},
+            )
+            self.assertTrue(grade_spreadsheet(fixture, [output]).passed)
+
     def test_gaia_normalized_exact_answer(self) -> None:
         fixture = task(source="gaia", category="level_1", grader_payload={"final_answer": "12,345"})
         self.assertTrue(grade_gaia(fixture, "Final answer: 12,345.").passed)
@@ -162,13 +207,78 @@ class RunnerClientTests(unittest.TestCase):
             response = OpenAICompatibleClient(model, 2).complete([{"role": "user", "content": "hello"}], None, 128)
         self.assertEqual((response.input_tokens, response.output_tokens, response.cached_input_tokens), (0, 0, 0))
 
+    def test_openai_client_enforces_deadline_across_retries(self) -> None:
+        rate_limit = HTTPError("http://fake/chat/completions", 429, "rate limit", {}, None)
+        model = ModelConfig("cheap", "low", "catalog-id", "api-id", "http://fake", "FIXTURE_KEY", 1.0, 2.0)
+        with patch("urllib.request.urlopen", side_effect=[rate_limit]) as urlopen:
+            with patch.dict(os.environ, {"FIXTURE_KEY": "secret"}):
+                with self.assertRaises(TimeoutError):
+                    OpenAICompatibleClient(model, 10).complete(
+                        [{"role": "user", "content": "hello"}],
+                        None,
+                        128,
+                        deadline=time.monotonic() + 0.05,
+                    )
+        self.assertEqual(urlopen.call_count, 1)
+
+    def test_spreadsheet_sort_range_numeric_and_empty_handling(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "sort.xlsx"
+            workbook = openpyxl.Workbook()
+            sheet = workbook.active
+            sheet.title = "Data"
+            for row_idx, val in enumerate([100, None, 20, 3], start=1):
+                sheet.cell(row=row_idx, column=2, value=val)
+            workbook.save(path)
+            workbook.close()
+
+            res = _spreadsheet_action(path, {"operation": "sort_range", "sheet": "Data", "range": "B1:B4", "key_columns": [1], "reverse": False})
+            self.assertTrue(res.get("ok"))
+            read_asc = _spreadsheet_action(path, {"operation": "read_range", "sheet": "Data", "range": "B1:B4"})
+            self.assertEqual([r[0] for r in read_asc["values"]], [3, 20, 100, None])
+
+            res_desc = _spreadsheet_action(path, {"operation": "sort_range", "sheet": "Data", "range": "B1:B4", "key_columns": [2], "reverse": True})
+            self.assertTrue(res_desc.get("ok"))
+            read_desc = _spreadsheet_action(path, {"operation": "read_range", "sheet": "Data", "range": "B1:B4"})
+            self.assertEqual([r[0] for r in read_desc["values"]], [100, 20, 3, None])
+
+            bad_col = _spreadsheet_action(path, {"operation": "sort_range", "sheet": "Data", "range": "B1:B4", "key_columns": [9]})
+            self.assertIn("error", bad_col)
+
+    def test_gaia_case_requests_final_answer_when_tool_limit_reached(self) -> None:
+        tool_turn = {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {"id": "call-1", "type": "function", "function": {"name": "web_search", "arguments": '{"query":"test"}'}}
+                        ],
+                    }
+                }
+            ]
+        }
+        final_turn = {"choices": [{"message": {"role": "assistant", "content": "42"}}]}
+        model = ModelConfig("cheap", "low", "catalog-id", "api-id", "http://fake", "FIXTURE_KEY", 1.0, 2.0)
+        client = OpenAICompatibleClient(model, 5)
+        gaia_task = task(source="gaia", category="level_1", grader_payload={"final_answer": "42"})
+        config = RunConfig(max_tool_calls=1)
+        with patch("urllib.request.urlopen", side_effect=[_FakeApiResponse(tool_turn), _FakeApiResponse(final_turn)]):
+            with patch("task_value_mvp.evals.runner._web_search", return_value="Result: 42"):
+                with patch.dict(os.environ, {"FIXTURE_KEY": "secret"}):
+                    responses, actions = _gaia_case(client, gaia_task, config, time.monotonic() + 10)
+        self.assertEqual(len(actions), 1)
+        self.assertEqual(len(responses), 2)
+        self.assertEqual(responses[-1].text, "42")
+
 
 class ReportingTests(unittest.TestCase):
     def test_synthetic_matrix_generates_all_baselines_and_gate(self) -> None:
         models = [
-            {"alias": "low", "role": "low", "catalog_model_id": "gpt-4.1-nano", "api_model": "low-api", "base_url": "http://local", "input_per_million_usd": 0.1, "output_per_million_usd": 0.4},
-            {"alias": "mid", "role": "middle", "catalog_model_id": "gpt-4.1-mini", "api_model": "mid-api", "base_url": "http://local", "input_per_million_usd": 0.4, "output_per_million_usd": 1.6},
-            {"alias": "premium", "role": "premium", "catalog_model_id": "gpt-4.1", "api_model": "premium-api", "base_url": "http://local", "input_per_million_usd": 2.0, "output_per_million_usd": 8.0},
+            {"alias": "low", "role": "low", "catalog_model_id": "openai/gpt-5-mini", "api_model": "low-api", "base_url": "http://local", "input_per_million_usd": 0.125, "output_per_million_usd": 1.0},
+            {"alias": "mid", "role": "middle", "catalog_model_id": "google/gemini-3.6-flash", "api_model": "mid-api", "base_url": "http://local", "input_per_million_usd": 0.75, "output_per_million_usd": 3.75},
+            {"alias": "premium", "role": "premium", "catalog_model_id": "anthropic/claude-opus-5", "api_model": "premium-api", "base_url": "http://local", "input_per_million_usd": 5.0, "output_per_million_usd": 25.0},
         ]
         rows = []
         specs = [
@@ -206,6 +316,54 @@ class ReportingTests(unittest.TestCase):
         self.assertIn("p95_token_usage", report["overall"])
         self.assertEqual(report["overall"]["coverage"], 1.0)
         self.assertIn("confidence_interval_supports_quality", report["promotion_gate"]["checks"])
+
+    def test_partial_run_and_holdout_cost_isolation(self) -> None:
+        models = [
+            {"alias": "low", "role": "low", "catalog_model_id": "openai/gpt-5-mini", "api_model": "low-api", "base_url": "http://local", "input_per_million_usd": 0.125, "output_per_million_usd": 1.0},
+            {"alias": "mid", "role": "middle", "catalog_model_id": "google/gemini-3.6-flash", "api_model": "mid-api", "base_url": "http://local", "input_per_million_usd": 0.75, "output_per_million_usd": 3.75},
+            {"alias": "premium", "role": "premium", "catalog_model_id": "anthropic/claude-opus-5", "api_model": "premium-api", "base_url": "http://local", "input_per_million_usd": 5.0, "output_per_million_usd": 25.0},
+        ]
+        # On calibration, low is cheaper ($0.01) than mid ($0.05). On holdout, mid happens to be $0.001 while low is $0.02.
+        # Without holdout cost leakage, evidence_router must still choose 'low' based on calibration costs.
+        cal_costs = {"low": 0.01, "mid": 0.05, "premium": 0.20}
+        hold_costs = {"low": 0.02, "mid": 0.001, "premium": 0.20}
+        rows = []
+        for alias in ("low", "mid", "premium"):
+            rows.append(EvalResult(
+                run_id="partial-run", eval_id="bfcl:cal", source="bfcl", category="simple", split="calibration",
+                model_alias=alias, catalog_model_id=next(m["catalog_model_id"] for m in models if m["alias"] == alias),
+                trial=0, native_score=1.0, normalized_score=1.0, passed=True, severe_failure=False,
+                latency_ms=50, input_tokens=10, output_tokens=2, cached_input_tokens=0,
+                cost_usd=cal_costs[alias], artifact_paths=[], error=None, grader_details={}, provenance={},
+            ))
+            rows.append(EvalResult(
+                run_id="partial-run", eval_id="bfcl:hold-1", source="bfcl", category="simple", split="holdout",
+                model_alias=alias, catalog_model_id=next(m["catalog_model_id"] for m in models if m["alias"] == alias),
+                trial=0, native_score=1.0, normalized_score=1.0, passed=True, severe_failure=False,
+                latency_ms=50, input_tokens=10, output_tokens=2, cached_input_tokens=0,
+                cost_usd=hold_costs[alias], artifact_paths=[], error=None, grader_details={}, provenance={},
+            ))
+        # Incomplete holdout task (only 'low' finished) should not crash generate_report
+        rows.append(EvalResult(
+            run_id="partial-run", eval_id="bfcl:hold-incomplete", source="bfcl", category="simple", split="holdout",
+            model_alias="low", catalog_model_id="openai/gpt-5-mini",
+            trial=0, native_score=1.0, normalized_score=1.0, passed=True, severe_failure=False,
+            latency_ms=50, input_tokens=10, output_tokens=2, cached_input_tokens=0,
+            cost_usd=0.01, artifact_paths=[], error=None, grader_details={}, provenance={},
+        ))
+        with tempfile.TemporaryDirectory() as temp:
+            run_dir = Path(temp)
+            metadata = {
+                "run_id": "partial-run", "profile": "local-core", "status": "running",
+                "started_at": "2026-01-01T00:00:00+00:00",
+                "task_count": 3, "models": models, "run_config": {"max_cost_per_task_usd": 1.0},
+            }
+            (run_dir / "run.json").write_text(json.dumps(metadata), encoding="utf-8")
+            (run_dir / "results.jsonl").write_text("\n".join(json.dumps(row.to_dict()) for row in rows) + "\n", encoding="utf-8")
+            report = generate_report(run_dir)
+        # evidence_router selected 'low' (holdout cost 0.02), not 'mid' (holdout cost 0.001)
+        self.assertAlmostEqual(report["baselines"]["evidence_router"]["cost_usd"], 0.02)
+        self.assertFalse(report["promotion_gate"]["passed"])
 
 
 if __name__ == "__main__":
